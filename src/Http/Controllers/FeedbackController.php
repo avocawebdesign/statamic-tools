@@ -52,7 +52,10 @@ class FeedbackController extends Controller
         return __DIR__."/../../../resources/feedback/{$file}.js";
     }
 
-    /** Who is viewing, whether a name or a password is still needed, and the token for writing. Never cached. */
+    /**
+     * Who is viewing, whether a name or a password is still needed, the token for writing, and how many days a comment
+     * or reply counts as new. Never cached.
+     */
     public function session(Request $request): JsonResponse
     {
         return $this->json([
@@ -60,6 +63,7 @@ class FeedbackController extends Controller
             'needs_password' => Viewer::needsPassword(),
             'needs_email' => Reviewers::listed(),
             'token' => csrf_token(),
+            'recent_days' => FeedbackStore::recentDays(),
         ]);
     }
 

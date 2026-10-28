@@ -228,6 +228,7 @@ const confirmBadge = () => '<span class="badge sugg">Suggested</span>';
 /* ---------- Rail ---------- */
 
 function renderRail() {
+    const addWas = fbAddRect();
     const body = $('#rail-body');
     const pr = parseRoute(state.route);
     const tab = railTab(pr);
@@ -244,6 +245,7 @@ function renderRail() {
     if (state.view === 'wireframes') body.innerHTML = off ? '' : notesRail();
     else if (fbBoard() && fb.board) body.innerHTML = fbBoardRail();
     else body.innerHTML = '';
+    fbFab(addWas);
 }
 
 // The panel's tab: Notes or Comments, or whichever of them the page has.
@@ -711,7 +713,7 @@ function placeDrawer() {
 // record what was decided. A decision carries from one version to the next, so it shows whichever version raised it.
 const FB = Object.assign({ on: false, base: '' }, window.PROTOTYPE_FEEDBACK);
 // editing is the comment or reply having its text changed: the comment's ID, and the reply's place or null.
-const fb = { session: null, comments: [], num: new Map(), draft: null, open: null, deciding: null, editing: null, picking: false, hover: null, error: '', errorFor: null, board: false };
+const fb = { session: null, comments: [], num: new Map(), draft: null, open: null, deciding: null, editing: null, picking: false, hover: null, error: '', errorFor: null, board: false, fabShown: false };
 
 // Comments can be made on the Sitemap and the Content model too, pinned to their page boxes and cards. Each is a page
 // of its own for comments, under a key no route can have.
@@ -728,6 +730,17 @@ const fbStaff = () => fbSigned() && !!fb.session.viewer.staff;
 // Whoever wrote something can change it, and the team can change the team's. The server checks the same.
 const fbMine = person => fbSigned() && !!person && !!person.staff === fbStaff()
     && (fbStaff() || String(person.name || '').trim().toLowerCase() === String(fb.session.viewer.name).trim().toLowerCase());
+// New in the last week, or the site's recent_days, from anyone but whoever is viewing, as on the site's pages.
+const fbFresh = item => {
+    const then = Date.parse(item && item.created_at);
+    return !!then && Date.now() - then < ((fb.session && fb.session.recent_days) || 7) * 864e5 && !fbMine(item.author);
+};
+const fbFreshReplies = c => (c.replies || []).filter(fbFresh).length;
+// Anything new on a comment: the comment itself, or a reply.
+const fbNews = c => fbFresh(c) || fbFreshReplies(c) > 0;
+const fbFlag = text => `<span class="fbc-new">${text}</span>`;
+// A fold says when something in it is new, such as a reply to a resolved comment.
+const fbFoldNews = list => { const n = list.filter(fbNews).length; return n ? fbFlag(`${n} new`) : ''; };
 const fbEditing = (id, reply = null) => !!fb.editing && fb.editing.id === id && fb.editing.reply === reply;
 const fbIsDecided = c => !!(c.decision && c.decision.state === 'decided');
 // A page's comments: this version's, and decisions from any version.
@@ -957,6 +970,71 @@ function fbAddButton() {
     b.innerHTML = fbAddLabel();
 }
 
+/* The floating Add comment */
+
+// While the Comments panel is shut, Add comment floats in the bottom right corner. Pressed, the panel opens and the
+// button travels into its place at the foot of the panel, then asks for a spot; as the panel shuts, it travels back.
+const fbCommentsOpen = () => fbBoard() ? !!fb.board : state.view === 'wireframes' && state.notes && railTab(parseRoute(state.route)) === 'comments';
+
+// Where the panel's Add comment is, and its corners, while it's in sight.
+function fbAddRect() {
+    const b = $('#fb-add');
+    const r = b && b.getBoundingClientRect();
+    return r && r.width && r.bottom > 0 && r.top < innerHeight ? { left: r.left, top: r.top, width: r.width, height: r.height, radius: getComputedStyle(b).borderRadius } : null;
+}
+
+// From one box to another by its edges rather than a transform, so the label never stretches.
+const fbFly = (el, from, to, radius) => el.animate([
+    { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: radius[0] },
+    { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, borderRadius: radius[1] }
+], { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' });
+
+// Shows or docks the floating button as the panel opens and shuts. The panel renders more than once as it opens, so
+// this goes by where the button should be, fb.fabShown, rather than whether it's hidden yet, and never flies twice.
+function fbFab(addWas) {
+    const fab = $('#fb-fab');
+    const show = FB.on && (state.view === 'wireframes' || !!fbBoard()) && !fbCommentsOpen();
+    const then = fb.fabThen;
+    fb.fabThen = null;
+    if (show === fb.fabShown) { if (then) then(); return; }
+    fb.fabShown = show;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const corner = getComputedStyle(fab).borderRadius;
+    // From wherever it is, mid-flight included.
+    const from = fab.hidden ? null : fab.getBoundingClientRect();
+    if (fb.flight) fb.flight.cancel();
+    fb.flight = null;
+    fb.landing = false;
+    if (show) {
+        fab.hidden = false;
+        if (still) return;
+        if (addWas) fb.flight = fbFly(fab, addWas, fab.getBoundingClientRect(), [addWas.radius, corner]);
+        else fab.animate([{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 160, easing: 'ease-out' });
+        return;
+    }
+    const add = $('#fb-add');
+    const to = fbAddRect();
+    if (!from || !add || !to || still) { fab.hidden = true; if (then) then(); return; }
+    // Add comment in the panel waits, unseen, until the floating one lands on it, however often the panel renders.
+    fb.landing = true;
+    add.style.visibility = 'hidden';
+    fb.flight = fbFly(fab, from, to, [corner, to.radius]);
+    fb.flight.finished.then(() => {
+        fb.flight = null;
+        fb.landing = false;
+        fab.hidden = true;
+        const now = $('#fb-add');
+        if (now) now.style.visibility = '';
+        if (then) then();
+    }, () => { /* cancelled: the panel shut while it flew */ });
+}
+
+$('#fb-fab').addEventListener('click', () => {
+    fb.fabThen = fbStartComment;
+    if (fbBoard()) setNotes(true);
+    else togglePanel('comments');
+});
+
 function fbPicked(frame, anchor) {
     fbPick(false);
     const board = fbBoard();
@@ -1070,14 +1148,58 @@ function fbShow(id) {
     fb.open = id;
     state.notes = true;
     state.railTab = 'comments';
+    // The frame it was made in, when only the other is showing, and the page options that were showing then, so the
+    // pin lands on what the reviewer saw.
+    if (c.frame && FR[c.frame] && state.frames !== 'both' && state.frames !== c.frame) setFrames(c.frame);
+    const redrawn = fbRestoreOptions(c);
     if (!there) {
         endJourney(true);
         const r = ROUTES.find(x => x.key === c.page);
         navigate(c.route || (r ? sampleRoute(r) : '/'));
+    } else if (redrawn) {
+        renderOptions();
+        Object.keys(FR).forEach(renderFrame);
+        fbSendPins();
     }
     fbRefresh();
-    setTimeout(() => tellFrames({ type: 'cpin-show', id }), there ? 0 : 600);
+    setTimeout(() => tellFrames({ type: 'cpin-show', id }), there && !redrawn ? 0 : 600);
     requestAnimationFrame(() => { const el = $(`#rail [data-fb="${id}"]`); if (el) el.scrollIntoView({ block: 'nearest' }); });
+}
+
+// Sets the page options a comment records, by their labels, as they were when it was made. Says whether any changed.
+function fbRestoreOptions(c) {
+    if (!c.options || typeof c.options !== 'object') return false;
+    let changed = false;
+    pageOptions(c.page).filter(o => !o.frame || !c.frame || o.frame === c.frame).forEach(o => {
+        const label = c.options[String(o.label).slice(0, 100)];
+        const choice = label != null && o.choices.find(ch => String(ch[1]).slice(0, 100) === label);
+        if (!choice || optionValue(c.page, o) === choice[0]) return;
+        state.opts = state.opts || {};
+        state.opts[c.page] = Object.assign({}, state.opts[c.page], { [o.id]: choice[0] });
+        changed = true;
+    });
+    if (changed) save();
+    return changed;
+}
+
+// A link that opens a comment in place, in its own version while that's served, for pasting into an email or a
+// message. Served by the site only: a prototype opened as a file has no address to give.
+function fbLinkTo(c) {
+    const v = VERSIONS.find(x => x.id === c.version && x.url) || VERSIONS.find(x => x.id === VERSION.id && x.url);
+    return v ? new URL(`${v.url}?comment=${encodeURIComponent(c.id)}`, location.href).href : null;
+}
+
+// The clipboard needs a secure page, so on a local http:// address this falls back to the older way.
+function fbCopy(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    const box = Object.assign(document.createElement('textarea'), { value: text, readOnly: true });
+    box.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(box);
+    box.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { /* shown instead, below */ }
+    box.remove();
+    return ok ? Promise.resolve() : Promise.reject(new Error('copy'));
 }
 
 /* Writing */
@@ -1170,6 +1292,11 @@ function fbAct(act, id, el) {
     }
     else if (act === 'raise') post('decision', { state: 'open' });
     else if (act === 'drop') post('decision', { state: 'none' });
+    else if (act === 'link') {
+        const link = fbLinkTo(fb.comments.find(x => x.id === id) || { id });
+        if (!link) { toast('Links to comments work in the prototype the site serves.'); return; }
+        fbCopy(link).then(() => toast('Link copied. It opens this comment, on its page.')).catch(() => prompt('Copy the link to this comment', link));
+    }
     else if (act === 'delete') {
         if (!confirm('Delete this comment and its replies? It can’t be undone here.')) return;
         fbRun(fbApi('POST', `comments/${id}/delete`, {}).then(() => {
@@ -1256,10 +1383,12 @@ function fbCard(c) {
     const d = c.decision;
     const author = (c.author || {}).name || 'Someone';
     const replies = c.replies || [];
+    const newReplies = fbFreshReplies(c);
+    const flag = fbFresh(c) ? fbFlag('New') : newReplies ? fbFlag(newReplies === 1 ? 'New reply' : `${newReplies} new replies`) : '';
     return `<article class="fbc fbc--${kind}${open ? ' is-open' : ''}" data-fb="${c.id}">
         <button type="button" class="fbc-head" data-fb-toggle="${c.id}" aria-expanded="${open}" aria-label="${open ? 'Close' : 'Open'} comment ${n || ''} from ${esc(author)}">
             <span class="fbc-n fbc-n--${kind}">${n || '•'}</span>
-            <span class="fbc-meta"><b>${esc(author)}</b><span>${fbDate(c.created_at)}${c.edited_at ? ' · edited' : ''}${c.version !== VERSION.id ? ` · ${esc(fbVersionLabel(c.version))}` : ''}</span></span>
+            <span class="fbc-meta"><span class="fbc-name"><b>${esc(author)}</b>${flag}</span><span>${fbDate(c.created_at)}${c.edited_at ? ' · edited' : ''}${c.version !== VERSION.id ? ` · ${esc(fbVersionLabel(c.version))}` : ''}</span></span>
             ${fbState(c)}
             <span class="fbc-chev" aria-hidden="true">${ICON.chev}</span>
         </button>
@@ -1267,7 +1396,7 @@ function fbCard(c) {
             ${open && fbEditing(c.id) ? fbEditForm(c) : `<p class="fbc-body${open ? '' : ' clamp'}">${esc(c.body)}</p>`}
             ${c.options && typeof c.options === 'object' && Object.keys(c.options).length ? `<p class="fbc-opts">With ${Object.entries(c.options).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join(' · ')}</p>` : ''}
             ${fbIsDecided(c) ? `<div class="fbc-outcome"><b>Answered</b><p>${esc(d.outcome)}</p><small>${esc((d.decided_by || {}).name || '')}${d.decided_at ? ` · ${fbDate(d.decided_at)}` : ''}</small></div>` : ''}
-            ${!open && replies.length ? `<p class="fbc-more">${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}</p>` : ''}
+            ${!open && replies.length ? `<p class="fbc-more">${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}${newReplies ? `, ${newReplies} new` : ''}</p>` : ''}
             ${open ? fbThread(c) : ''}
         </div>
     </article>`;
@@ -1277,7 +1406,7 @@ function fbCard(c) {
 // wrote it.
 function fbActions(c) {
     const staff = fbStaff();
-    const more = fbMine(c.author) ? [['edit', 'Edit']] : [];
+    const more = [...(fbMine(c.author) ? [['edit', 'Edit']] : []), ['link', 'Copy link']];
     let next = null;
     if (fbIsDecided(c)) { if (staff) next = ['reopen', 'Reopen']; }
     else if (c.status === 'resolved') next = ['reopen', 'Reopen'];
@@ -1299,7 +1428,7 @@ function fbEditForm(c, reply = null) {
 }
 
 function fbThread(c) {
-    const replies = (c.replies || []).map((r, i) => `<li><p class="fbc-meta"><b>${esc((r.author || {}).name || 'Someone')}</b><span>${fbDate(r.created_at)}${r.edited_at ? ' · edited' : ''}</span></p>${fbEditing(c.id, i) ? fbEditForm(c, i)
+    const replies = (c.replies || []).map((r, i) => `<li><p class="fbc-meta"><span class="fbc-name"><b>${esc((r.author || {}).name || 'Someone')}</b>${fbFresh(r) ? fbFlag('New') : ''}</span><span>${fbDate(r.created_at)}${r.edited_at ? ' · edited' : ''}</span></p>${fbEditing(c.id, i) ? fbEditForm(c, i)
         : `<p class="fbc-body">${esc(r.body)}</p>${fbMine(r.author) && !fb.editing ? `<button type="button" class="link-btn fbc-edit" data-fb-act="edit-reply" data-id="${c.id}" data-reply="${i}">Edit</button>` : ''}`}</li>`).join('');
     const { next, more } = fbActions(c);
     const acts = fb.deciding === c.id || fbEditing(c.id) ? '' : `${next ? `<button type="button" class="btn small" data-fb-act="${next[0]}" data-id="${c.id}">${next[1]}</button>` : ''}
@@ -1328,7 +1457,7 @@ function fbPanel(key) {
 
 // The pins switch, pinned to the foot of the panel over whatever scrolls beneath it.
 function fbFoot() {
-    return `<div class="fb-foot">${fbSigned() ? `<button type="button" class="add-btn" id="fb-add" aria-pressed="${fb.picking}">${fbAddLabel()}</button>` : ''}
+    return `<div class="fb-foot">${fbSigned() ? `<button type="button" class="add-btn" id="fb-add" aria-pressed="${fb.picking}"${fb.landing ? ' style="visibility:hidden"' : ''}>${fbAddLabel()}</button>` : ''}
         <label class="toggle"><input type="checkbox" data-fb-pins${state.pins ? ' checked' : ''}> Show comment pins</label></div>`;
 }
 
@@ -1337,8 +1466,9 @@ function fbScopeBar() {
     const all = state.fbList === 'all';
     const here = fbBoard() ? fbBoard().label : 'This page';
     const open = fbFiltered('open', 'version').length;
+    const fresh = fb.comments.filter(fbNews).length;
     return `<div class="fb-h">
-        <p class="fb-scope">${all ? `<button type="button" class="link-btn" data-fb-list="page">${here}</button>` : `<b>${here}</b>`}<span aria-hidden="true">·</span>${all ? '<b>All pages</b>' : `<button type="button" class="link-btn" data-fb-list="all">All pages${open ? ` (${open} open)` : ''}</button>`}</p>
+        <p class="fb-scope">${all ? `<button type="button" class="link-btn" data-fb-list="page">${here}</button>` : `<b>${here}</b>`}<span aria-hidden="true">·</span>${all ? '<b>All pages</b>' : `<button type="button" class="link-btn" data-fb-list="all">All pages${open ? ` (${open} open)` : ''}</button>`}${fresh ? fbFlag(`${fresh} new this week`) : ''}</p>
     </div>`;
 }
 
@@ -1352,7 +1482,7 @@ function fbSection(key) {
         ${fb.draft && fb.draft.page === key ? fbCompose() : ''}
         ${!list.length && !fb.draft ? '<p class="note-line">No comments here yet. Press Add comment, then click the spot you mean.</p>' : ''}
         ${open.map(c => fbCard(c)).join('')}
-        ${done.length ? `<details class="fold fb-resolved"${done.some(c => c.id === fb.open) ? ' open' : ''}><summary>Resolved <span class="fold-n">${done.length}</span></summary><div>${done.map(c => fbCard(c)).join('')}</div></details>` : ''}
+        ${done.length ? `<details class="fold fb-resolved"${done.some(c => c.id === fb.open) ? ' open' : ''}><summary>Resolved <span class="fold-n">${done.length}</span>${fbFoldNews(done)}</summary><div>${done.map(c => fbCard(c)).join('')}</div></details>` : ''}
     </section>`;
 }
 
@@ -1387,7 +1517,7 @@ function fbAll() {
         ${groups.length ? groups.map(([key, cs, ds]) => `<div class="fb-group">
             <div class="fb-group-h"><h3>${key !== here && go(key) ? `<button type="button" class="fb-page" ${go(key)}>${esc(title(key))}<span aria-hidden="true">→</span></button>` : esc(title(key))}</h3>${key === here ? '<span class="fb-here">Showing</span>' : fbGone(key) ? '<span class="fb-here">Not in this version</span>' : ''}</div>
             ${cs.map(c => fbCard(c)).join('')}
-            ${ds.length ? `<details class="fold fb-resolved"${ds.some(c => c.id === fb.open) ? ' open' : ''}><summary>Resolved <span class="fold-n">${ds.length}</span></summary><div>${ds.map(c => fbCard(c)).join('')}</div></details>` : ''}
+            ${ds.length ? `<details class="fold fb-resolved"${ds.some(c => c.id === fb.open) ? ' open' : ''}><summary>Resolved <span class="fold-n">${ds.length}</span>${fbFoldNews(ds)}</summary><div>${ds.map(c => fbCard(c)).join('')}</div></details>` : ''}
         </div>`).join('') : `<p class="note-line">${FB_EMPTY[show]}</p>`}
     </section>`;
 }

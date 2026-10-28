@@ -1,14 +1,20 @@
-New feedback on {{ config('app.name') }} since the last email.
+{{-- Plain text, so nothing is escaped as it would be for HTML. --}}
+New feedback on {!! config('app.name') !!} since the last email.
+@foreach ($people as $person)
 
-@foreach ($items as $item)
-@php($comment = $item['comment'])
-{{ ($comment['context'] ?? 'site') === 'prototype' ? 'Prototype, version '.($comment['version'] ?? '').': '.($comment['title'] ?: ($comment['route'] ?? '')) : ($comment['title'] ?: ($comment['url'] ?? '/')) }}
+{!! $person['name'] !!}: {!! \Avocadesign\StatamicTools\Feedback\Digest::tally($person['comments'], $person['replies']) !!}
+@foreach ($person['pages'] as $page)
+
+  {!! $page['place'] !!}
+@foreach ($page['items'] as $item)
 @if ($item['kind'] === 'reply')
-{{ $item['reply']['author']['name'] ?? 'Someone' }} replied: {{ \Illuminate\Support\Str::limit((string) ($item['reply']['body'] ?? ''), 600) }}
+  - Replied: {!! \Illuminate\Support\Str::limit((string) ($item['reply']['body'] ?? ''), 600) !!}
 @else
-{{ $comment['author']['name'] ?? 'Someone' }} commented: {{ \Illuminate\Support\Str::limit((string) ($comment['body'] ?? ''), 600) }}
+  - {!! \Illuminate\Support\Str::limit((string) ($item['comment']['body'] ?? ''), 600) !!}
 @endif
-{{ \Avocadesign\StatamicTools\Feedback\Digest::link($comment) }}
-
+    {!! \Avocadesign\StatamicTools\Feedback\Digest::link($item['comment']) !!}
 @endforeach
-Sent to the team while feedback is switched on for this site.
+@endforeach
+@endforeach
+
+Sent to the team while feedback is switched on for this site, once reviewers have gone quiet.

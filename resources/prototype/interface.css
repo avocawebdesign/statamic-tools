@@ -231,6 +231,9 @@ a.vm-i:hover, .vm-i.on { background: var(--surface-2); }
 .add-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px 16px; border: 0; border-radius: 10px; background: var(--act); color: var(--act-ink); font-size: 14px; font-weight: 700; }
 .add-btn:hover { background: color-mix(in oklab, var(--act) 85%, #000); }
 .add-btn[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--act); font-weight: 600; }
+/* Add comment, floating in the corner while the Comments panel is shut. Under an entity's drawer, over the frames. */
+.fab { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 30; width: auto; padding: 10px 20px; border-radius: 22px; white-space: nowrap; box-shadow: 0 0 0 1px rgb(255 255 255 / .12), 0 8px 24px rgb(0 0 0 / .45); }
+.fab[hidden] { display: none; }
 .add-cancel { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--line-2); text-decoration: underline; text-underline-offset: 3px; }
 .rail h2, .ent-drawer h2 { font-size: 20px; font-weight: 600; line-height: 1.2; }
 .rail h3, .ent-drawer h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; }
@@ -454,6 +457,10 @@ button.node:hover { border-color: var(--ink); }
 .fbc-head[aria-expanded="true"] .fbc-chev svg { transform: rotate(180deg); }
 .fbc-head:hover .fbc-chev { color: var(--ink); }
 .fbc-meta b { font-size: 13px; font-weight: 600; color: var(--ink); }
+.fbc-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+/* New this week, in the interface's action colour. Its own type, so it reads the same in a fold's summary. */
+.fbc-new { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 999px; background: color-mix(in oklab, var(--act) 24%, var(--surface)); color: var(--ink); font: 600 11px/1.6 var(--sans); white-space: nowrap; }
+.fbc-new::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--act); }
 /* A decision's label sits over the card's top right corner. */
 .fbc-state { position: absolute; top: -9px; right: -6px; z-index: 1; font-size: 11px; font-weight: 600; line-height: 1.5; padding: 0 8px; border-radius: 999px; white-space: nowrap; border: 1px solid var(--line-2); background: var(--surface); color: var(--muted); }
 .fbc-state.decide { color: var(--pin); }

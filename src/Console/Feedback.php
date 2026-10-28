@@ -2,6 +2,7 @@
 
 namespace Avocadesign\StatamicTools\Console;
 
+use Avocadesign\StatamicTools\Feedback\Digest;
 use Avocadesign\StatamicTools\Feedback\FeedbackStore;
 use Avocadesign\StatamicTools\Site\Blocks;
 use Illuminate\Console\Command;
@@ -132,6 +133,8 @@ class Feedback extends Command
         }
 
         if ($this->option('json')) {
+            // Each with what is new on it this week, and the address that opens it in place.
+            $comments = array_map(fn ($c) => [...$c, 'recent' => FeedbackStore::recent($c), 'link' => $this->link($c)], $comments);
             $this->line(json_encode(['about' => self::UNTRUSTED, 'comments' => $comments], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return self::SUCCESS;
@@ -395,19 +398,24 @@ class Feedback extends Command
             FeedbackStore::DECIDED => ' <fg=green>decided</>',
             default => '',
         };
-        $this->line('<options=bold>'.$e($comment['id']).'</> '.$status.$badge.'  '.$place.($where !== '' ? "  <fg=gray>{$where}</>" : ''));
+        $recent = FeedbackStore::recent($comment);
+        $count = count($recent['replies']);
+        $news = $recent['comment'] ? ' <fg=cyan>new</>' : ($count ? ' <fg=cyan>'.($count === 1 ? 'new reply' : "{$count} new replies").'</>' : '');
+        $this->line('<options=bold>'.$e($comment['id']).'</> '.$status.$badge.$news.'  '.$place.($where !== '' ? "  <fg=gray>{$where}</>" : ''));
         $this->line('  '.$e($author['name'] ?? 'Someone').($author['staff'] ?? false ? ' (team)' : '').', '.$this->ago($comment['created_at'] ?? null)
             .(! empty($comment['edited_at']) ? ', edited' : '')
             .(isset($viewport['width']) ? ', '.(int) $viewport['width'].'px wide'.(isset($viewport['breakpoint']) ? ' ('.$e($viewport['breakpoint']).')' : '') : ''));
         foreach (preg_split('/\R/', (string) ($comment['body'] ?? '')) as $line) {
             $this->line('  '.$e($line));
         }
-        foreach ((array) ($comment['replies'] ?? []) as $reply) {
-            $this->line('    <fg=gray>↳ '.$e($reply['author']['name'] ?? 'Someone').', '.$this->ago($reply['created_at'] ?? null).(! empty($reply['edited_at']) ? ', edited' : '').':</> '.$e(str_replace("\n", ' ', (string) $reply['body'])));
+        foreach (array_values((array) ($comment['replies'] ?? [])) as $i => $reply) {
+            $this->line('    <fg=gray>↳ '.$e($reply['author']['name'] ?? 'Someone').', '.$this->ago($reply['created_at'] ?? null).(! empty($reply['edited_at']) ? ', edited' : '').':</>'
+                .(in_array($i, $recent['replies'], true) ? ' <fg=cyan>new</>' : '').' '.$e(str_replace("\n", ' ', (string) $reply['body'])));
         }
         if (! empty($anchor['selector'])) {
             $this->line('  <fg=gray>element: '.$e($anchor['selector']).'</>');
         }
+        $this->line('  <fg=gray>open it: '.$e($this->link($comment)).'</>');
         if (($decision['state'] ?? null) === FeedbackStore::DECIDED) {
             $this->line('  <fg=green>decided:</> '.$e($decision['outcome'] ?? '').' <fg=gray>('.$e($decision['decided_by']['name'] ?? 'the team').')</>');
         } elseif (! empty($decision['who'])) {
@@ -416,6 +424,18 @@ class Feedback extends Command
         if (($comment['status'] ?? '') === FeedbackStore::RESOLVED && ! empty($comment['resolved_by']['name'])) {
             $this->line('  <fg=gray>resolved by '.$e($comment['resolved_by']['name']).', '.$this->ago($comment['resolved_at'] ?? null).'</>');
         }
+    }
+
+    /**
+     * The address that opens a comment in place: on its page, or in its prototype version, with the comment open. With
+     * --from, on that server.
+     */
+    private function link(array $comment): string
+    {
+        $link = Digest::link($comment);
+        $from = $this->option('from');
+
+        return is_string($from) && $from !== '' ? rtrim($from, '/').(parse_url($link, PHP_URL_PATH) ?: '/').'?'.parse_url($link, PHP_URL_QUERY) : $link;
     }
 
     /** Where on the page, in words: the block, then the nearest heading or the element's own text. */

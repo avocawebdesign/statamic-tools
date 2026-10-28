@@ -2,12 +2,13 @@
 
 namespace Avocadesign\StatamicTools\Mail;
 
+use Avocadesign\StatamicTools\Feedback\Digest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-/** The team's digest of new comments and replies, each with a link straight to it. */
+/** The team's digest of new comments and replies, by who made them and then by page, each with a link straight to it. */
 class FeedbackDigest extends Mailable
 {
     use Queueable;
@@ -17,20 +18,27 @@ class FeedbackDigest extends Mailable
     {
     }
 
+    /** The items by who made them, and each person's by page. */
+    public function people(): array
+    {
+        return Digest::byPerson($this->items);
+    }
+
     public function envelope(): Envelope
     {
         $comments = count(array_filter($this->items, fn ($item) => $item['kind'] === 'comment'));
-        $replies = count($this->items) - $comments;
-        $parts = array_filter([
-            $comments ? $comments.' new '.($comments === 1 ? 'comment' : 'comments') : null,
-            $replies ? $replies.' '.($replies === 1 ? 'reply' : 'replies') : null,
-        ]);
+        $names = array_column($this->people(), 'name');
+        $from = count($names) <= 2 ? implode(' and ', $names) : $names[0].' and '.(count($names) - 1).' others';
 
-        return new Envelope(subject: ucfirst(implode(' and ', $parts)).' on '.config('app.name'));
+        return new Envelope(subject: ucfirst(Digest::tally($comments, count($this->items) - $comments, true)).' from '.$from.' on '.config('app.name'));
     }
 
     public function content(): Content
     {
-        return new Content(view: 'statamic-tools::feedback.digest', text: 'statamic-tools::feedback.digest-text');
+        return new Content(
+            view: 'statamic-tools::feedback.digest',
+            text: 'statamic-tools::feedback.digest-text',
+            with: ['people' => $this->people()],
+        );
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Avocadesign\StatamicTools\Feedback;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Statamic\Facades\YAML;
 
@@ -201,6 +202,31 @@ final class FeedbackStore
         $name = mb_strtolower(trim((string) ($author['name'] ?? '')));
 
         return $staff || ($name !== '' && $name === mb_strtolower(trim((string) ($by['name'] ?? ''))));
+    }
+
+    /**
+     * What is new on a comment, as the team sees it: whether reviewers made it in the last recent_days, and which of its
+     * replies, by their place in the thread, they added in that time. The team's own words are never new to the team.
+     * The panel works out the same in the browser for whoever is viewing, so a reviewer sees the team's replies as new.
+     *
+     * @param  array<string, mixed>  $comment
+     * @return array{comment: bool, replies: array<int, int>}
+     */
+    public static function recent(array $comment): array
+    {
+        $since = now()->subDays(self::recentDays());
+        $fresh = fn (mixed $item) => is_array($item) && ! ($item['author']['staff'] ?? false)
+            && is_string($item['created_at'] ?? null) && Carbon::parse($item['created_at'])->gt($since);
+
+        return [
+            'comment' => $fresh($comment),
+            'replies' => array_keys(array_filter(array_values((array) ($comment['replies'] ?? [])), $fresh)),
+        ];
+    }
+
+    public static function recentDays(): int
+    {
+        return max(1, (int) config('statamic-tools.feedback.recent_days', 7));
     }
 
     /** @param  array{name: string, staff: bool}  $by */

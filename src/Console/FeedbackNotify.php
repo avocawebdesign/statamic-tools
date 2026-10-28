@@ -6,19 +6,22 @@ use Avocadesign\StatamicTools\Feedback\Digest;
 use Avocadesign\StatamicTools\Feedback\FeedbackSettings;
 use Avocadesign\StatamicTools\Feedback\FeedbackStore;
 use Avocadesign\StatamicTools\Mail\FeedbackDigest;
+use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
  * Emails the team one digest of the comments and replies reviewers made since the last one. Laravel's scheduler runs it
- * every few minutes while feedback is on, so a client who leaves twenty comments sends one email, not twenty. If the
- * email can't be sent, the next run tries again with everything since.
+ * every five minutes while feedback is on, and it waits until reviewers have gone quiet, or the oldest comment has
+ * waited long enough, so a client who spends an hour leaving twenty comments sends one email, not twenty. If the email
+ * can't be sent, the next run tries again with everything since.
  */
 class FeedbackNotify extends Command
 {
     protected $signature = 'avoca:feedback:notify
-        {--dry-run : Say who would be told what, and send nothing}';
+        {--now : Send what is waiting without waiting for reviewers to go quiet}
+        {--dry-run : Say who would be told what, and when, and send nothing}';
 
     protected $description = 'Email the team a digest of new feedback since the last one.';
 
@@ -49,12 +52,26 @@ class FeedbackNotify extends Command
         }
 
         $summary = count($items).' new '.(count($items) === 1 ? 'item' : 'items').' for '.implode(', ', $to);
+        $due = Digest::dueAt($items);
+        $waiting = ! $this->option('now') && $due->isFuture();
+        // Relative, since the app's timezone is often UTC and nobody reading this is.
+        $when = 'in '.$due->diffForHumans(['syntax' => CarbonInterface::DIFF_ABSOLUTE, 'parts' => 2, 'minimumUnit' => 'minute']);
         if ($this->option('dry-run')) {
-            $this->line("Would send {$summary}:");
-            foreach ($items as $item) {
-                $author = $item['kind'] === 'reply' ? ($item['reply']['author']['name'] ?? 'Someone') : ($item['comment']['author']['name'] ?? 'Someone');
-                $this->line("  {$item['kind']} from {$author}: ".Digest::link($item['comment']));
+            $this->line("Would send {$summary}".($waiting ? ", {$when} if nothing more comes in" : ' now').':');
+            foreach (Digest::byPerson($items) as $person) {
+                $this->line("  {$person['name']}: ".Digest::tally($person['comments'], $person['replies']));
+                foreach ($person['pages'] as $page) {
+                    foreach ($page['items'] as $item) {
+                        $this->line("    {$item['kind']}: ".Digest::link($item['comment']));
+                    }
+                }
             }
+
+            return self::SUCCESS;
+        }
+
+        if ($waiting) {
+            $this->line("Waiting for reviewers to go quiet: {$summary}, {$when} if nothing more comes in.");
 
             return self::SUCCESS;
         }

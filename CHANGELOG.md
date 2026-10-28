@@ -2,6 +2,17 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## Unreleased
+
+### Feedback
+
+- **One digest for a review, not one every ten minutes.** The team's email now waits until reviewers have said nothing for 30 minutes, or until the oldest comment in it has waited two hours, whichever comes first. A client who spends an hour leaving twenty comments sends one email after they stop; one commenting all afternoon, one every couple of hours. The scheduler checks every five minutes. `FEEDBACK_DIGEST_QUIET` and `FEEDBACK_DIGEST_HOLD` change the two, in minutes, and `digest_minutes` is gone from the config. `avoca:feedback:notify --now` sends what is waiting at once, and `--dry-run` says when it would go.
+- **The digest is by person, then page.** Each reviewer's comments and replies are together, under their name with a count, page by page, and the subject says who: `6 new comments and 2 replies from Jane Client on Acme`. The plain text part no longer escapes apostrophes as `&#039;`.
+- **New this week.** In the site's Comments panel and the prototype's, a comment made in the last week by anyone but whoever is looking is marked New, and one with a reply in that time New reply, as is the reply. The team's own words are never new to the team. The panel says how many comments have something new, and a Resolved fold says when something in it is. `recent_days` in the config sets the week. `avoca:feedback` marks what reviewers said this week as new, and `--json` adds each comment's `recent`.
+- **Links to comments.** Copy link, in every comment's ⋯ menu on the site and in the prototype, copies an address that opens the comment in place. A prototype link now also switches to the frame the comment was made in when only the other is showing, and sets the page options that were showing when it was made, so the pin lands on what the reviewer saw. `avoca:feedback` prints each comment's address, the server's with `--from`, and `--json` adds it as `link`.
+- **A floating Add comment in the prototype.** While the Comments panel is shut, Add comment floats in the bottom right corner. Pressed, the panel opens, the button travels into its place at the foot of the panel and asks for a spot; it travels back as the panel shuts.
+- **To do on update:** nothing. A site that set `digest_minutes` in a published copy of the config can drop it.
+
 ## v0.2.0 (18 October 2026)
 
 A new release line, the first since v0.1.55. The recipe now builds blocks with Tailwind utilities in their templates, the add-on brings the design check that proves a conversion changes nothing and an audit of a site against the recipe, and critical CSS has a method. Each part below says what a site does about it.

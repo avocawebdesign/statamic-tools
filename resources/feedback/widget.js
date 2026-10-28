@@ -75,6 +75,10 @@
         '.card-head[aria-expanded=true] .chev svg{transform:rotate(180deg)}',
         '.card-head:hover .chev{color:var(--ink)}',
         '.badge{padding:0 6px;border-radius:9px;background:var(--soft);color:var(--muted);font-size:11px;font-weight:600}',
+        // New this week, in the site's primary colour. Its own type, so it reads the same in a fold's summary.
+        '.fb .fresh{display:inline-flex;align-items:center;gap:4px;padding:0 7px;border-radius:9px;background:color-mix(in oklab,var(--add) 14%,var(--bg));',
+        'color:var(--ink);font:600 11px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;white-space:nowrap}',
+        '.fb .fresh::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--add)}',
         // A decision's label sits over the card's top right corner.
         '.state{position:absolute;top:-9px;right:-6px;z-index:1;padding:0 8px;border:1px solid var(--line-2);border-radius:999px;background:var(--bg);font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap;color:var(--muted)}',
         '.state.decide{color:var(--warn)}',
@@ -103,6 +107,7 @@
         '.menu button:hover{background:var(--soft)}',
         '.menu button.danger{color:var(--warn)}',
         '.icon.small{width:26px;height:26px}',
+        '.copied{font-size:12px;font-weight:600;color:var(--green-text);white-space:nowrap}',
         '.form{display:flex;flex-direction:column;gap:8px}',
         '.form textarea,.form input[type=email],.form input[name=name],.form input[type=password]{width:100%;padding:8px 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;resize:vertical}',
         '.form textarea{min-height:60px}',
@@ -192,6 +197,8 @@
         draft: null,
         error: null,
         errorFor: null,
+        // The comment whose link was just copied, said beside it for a moment.
+        copied: null,
         pins: true
     };
     var ui = {};
@@ -243,6 +250,21 @@
             if (width >= px) return BREAKPOINTS[i][0];
         }
         return 'base';
+    }
+
+    // The clipboard needs a secure page, so on a local http:// address this falls back to the older way.
+    function copy(text) {
+        if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+        var box = document.createElement('textarea');
+        box.value = text;
+        box.readOnly = true;
+        box.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(box);
+        box.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { /* shown instead, by the caller */ }
+        box.remove();
+        return ok ? Promise.resolve() : Promise.reject(new Error('copy'));
     }
 
     function api(method, url, body) {
@@ -421,6 +443,17 @@
     }
     function editing(id, reply) { return !!state.editing && state.editing.id === id && state.editing.reply === (reply == null ? null : reply); }
     function byNumber(a, b) { return (state.numbers[a.id] || 0) - (state.numbers[b.id] || 0); }
+    // New in the last week, or the site's recent_days, from anyone but whoever is viewing: the team sees what reviewers
+    // said, and a reviewer what the team and other reviewers said. avoca:feedback marks the same for the team.
+    function fresh(item) {
+        var then = Date.parse(item && item.created_at);
+        var days = (state.session && state.session.recent_days) || 7;
+        return !!then && Date.now() - then < days * 86400000 && !mine(item.author);
+    }
+    function freshReplies(c) { return (c.replies || []).filter(fresh).length; }
+    // Anything new on a comment: the comment itself, or a reply.
+    function news(c) { return fresh(c) || freshReplies(c) > 0; }
+    function flag(text) { return '<span class="fresh">' + text + '</span>'; }
     function find(id) { return state.all.filter(function (c) { return c.id === id; })[0] || null; }
 
     // The filter All pages is showing: Comments, Questions or Resolved.
@@ -614,9 +647,11 @@
     function scopeBar() {
         var all = state.scope === 'all';
         var open = state.all.filter(isOpen).length;
+        var newCount = state.all.filter(news).length;
         return '<div class="scope"><p>' +
             (all ? '<button type="button" class="link" data-scope="page">This page</button>' : '<b>This page</b>') + '<span aria-hidden="true">·</span>' +
             (all ? '<b>All pages</b>' : '<button type="button" class="link" data-scope="all">All pages' + (open ? ' (' + open + ' open)' : '') + '</button>') +
+            (newCount ? flag(newCount + ' new this week') : '') +
             '</p></div>' +
             (all ? '<div class="chips" role="group" aria-label="Show">' + FILTERS.map(function (f) {
                 var n = filtered(f[0]).length;
@@ -634,7 +669,7 @@
         html += list.filter(isOpen).map(card).join('');
         if (finished.length) {
             var opened = finished.some(function (c) { return c.id === state.openId; });
-            html += '<details class="fold"' + (opened ? ' open' : '') + '><summary>Resolved <span>' + finished.length + '</span></summary><div>' + finished.map(card).join('') + '</div></details>';
+            html += '<details class="fold"' + (opened ? ' open' : '') + '><summary>Resolved <span>' + finished.length + '</span>' + foldNews(finished) + '</summary><div>' + finished.map(card).join('') + '</div></details>';
         }
         return html;
     }
@@ -667,9 +702,15 @@
             return '<div class="group"><div class="group-h"><h3>' + (url === path() ? esc(title) : '<a class="page" href="' + esc(url) + '">' + esc(title) + '<span aria-hidden="true">→</span></a>') + '</h3>' +
                 (url === path() ? '<span>This page</span>' : '') + '</div>' +
                 cs.map(card).join('') +
-                (ds.length ? '<details class="fold"' + (opened ? ' open' : '') + '><summary>Resolved <span>' + ds.length + '</span></summary><div>' + ds.map(card).join('') + '</div></details>' : '') +
+                (ds.length ? '<details class="fold"' + (opened ? ' open' : '') + '><summary>Resolved <span>' + ds.length + '</span>' + foldNews(ds) + '</summary><div>' + ds.map(card).join('') + '</div></details>' : '') +
                 '</div>';
         }).join('');
+    }
+
+    // A fold says when something in it is new, such as a reply to a resolved comment.
+    function foldNews(list) {
+        var n = list.filter(news).length;
+        return n ? flag(n + ' new') : '';
     }
 
     function composer() {
@@ -686,9 +727,9 @@
         return '<span class="state ' + (done(c) ? 'done' : 'decide') + '">' + (done(c) ? '✓ ' : '') + 'Question</span>';
     }
 
-    function by(person, time, edited) {
+    function by(person, time, edited, marker) {
         var name = (person && person.name) || 'Someone';
-        return '<span class="by"><span class="name"><b>' + esc(name) + '</b>' + (person && person.staff ? '<span class="badge">team</span>' : '') + '</span>' +
+        return '<span class="by"><span class="name"><b>' + esc(name) + '</b>' + (person && person.staff ? '<span class="badge">team</span>' : '') + (marker || '') + '</span>' +
             '<time datetime="' + esc(time) + '">' + esc(ago(time)) + (edited ? ' · edited' : '') + '</time></span>';
     }
 
@@ -706,13 +747,15 @@
         var n = onPage(c) || state.scope === 'all' ? state.numbers[c.id] : null;
         var d = c.decision;
         var replies = c.replies || [];
+        var newReplies = freshReplies(c);
+        var marker = fresh(c) ? flag('New') : newReplies ? flag(newReplies === 1 ? 'New reply' : newReplies + ' new replies') : '';
         return '<article class="card card--' + k + (open ? ' is-open' : '') + (hotId() === c.id ? ' hot' : '') + '" data-id="' + esc(c.id) + '">' +
             '<button type="button" class="card-head toggle" aria-expanded="' + open + '" aria-label="' + (open ? 'Close' : 'Open') + ' comment ' + (n || '') + ' from ' + esc((c.author || {}).name || 'someone') + '">' +
-            '<span class="num num--' + k + '">' + (n || '·') + '</span>' + by(c.author, c.created_at, c.edited_at) + stateBadge(c) +
+            '<span class="num num--' + k + '">' + (n || '·') + '</span>' + by(c.author, c.created_at, c.edited_at, marker) + stateBadge(c) +
             '<span class="chev" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>' +
             '<div class="card-main">' + (open && editing(c.id) ? editForm(c) : '<p class="text' + (open ? '' : ' clamp') + '">' + esc(c.body) + '</p>') +
             (decided(c) ? '<div class="outcome"><b>Answered</b><p>' + esc(d.outcome) + '</p><small>' + esc((d.decided_by || {}).name || '') + (d.decided_at ? ' · ' + esc(ago(d.decided_at)) : '') + '</small></div>' : '') +
-            (!open && replies.length ? '<p class="more">' + replies.length + (replies.length === 1 ? ' reply' : ' replies') + '</p>' : '') +
+            (!open && replies.length ? '<p class="more">' + replies.length + (replies.length === 1 ? ' reply' : ' replies') + (newReplies ? ', ' + newReplies + ' new' : '') + '</p>' : '') +
             (open ? thread(c) : '') +
             '</div></article>';
     }
@@ -720,7 +763,7 @@
     // What can be done with a comment: the one next step as a button, anything else in a menu, Edit first for whoever
     // wrote it.
     function actions(c) {
-        var more = mine(c.author) ? [['edit', 'Edit']] : [];
+        var more = (mine(c.author) ? [['edit', 'Edit']] : []).concat([['link', 'Copy link']]);
         var next = null;
         if (decided(c)) { if (staff()) next = ['reopen', 'Reopen']; }
         else if (c.status === 'resolved') next = ['reopen', 'Reopen'];
@@ -735,11 +778,12 @@
     function thread(c) {
         var id = esc(c.id);
         var replies = (c.replies || []).map(function (r, i) {
-            return '<li>' + by(r.author, r.created_at, r.edited_at) + (editing(c.id, i) ? editForm(c, i) : '<p class="text">' + esc(r.body) + '</p>' +
+            return '<li>' + by(r.author, r.created_at, r.edited_at, fresh(r) ? flag('New') : '') + (editing(c.id, i) ? editForm(c, i) : '<p class="text">' + esc(r.body) + '</p>' +
                 (mine(r.author) && !state.editing ? '<button type="button" class="link reply-edit" data-act="edit-reply" data-reply="' + i + '">Edit</button>' : '')) + '</li>';
         }).join('');
         var a = actions(c);
         var acts = state.deciding === c.id || editing(c.id) ? '' :
+            (state.copied === c.id ? '<span class="copied" role="status">Link copied</span>' : '') +
             (onPage(c) ? '' : '<a class="ghost small" href="' + esc(c.url + '?feedback=' + c.id) + '">Go to page</a>') +
             (a.next ? '<button type="button" class="ghost small" data-act="' + a.next[0] + '">' + a.next[1] + '</button>' : '') +
             (a.more.length ? '<span class="more-wrap"><button type="button" class="icon small menu-toggle" aria-expanded="false" aria-label="More actions" title="More actions">' +
@@ -1007,6 +1051,15 @@
         }
         if (act === 'raise') return post('decision', { state: 'open' });
         if (act === 'drop') return post('decision', { state: 'none' });
+        // A link that opens the comment on its page, for pasting into an email or a message.
+        if (act === 'link') {
+            var link = location.origin + c.url + '?feedback=' + encodeURIComponent(c.id);
+            return copy(link).then(function () {
+                state.copied = c.id;
+                render();
+                setTimeout(function () { if (state.copied === c.id) { state.copied = null; render(); } }, 2500);
+            }).catch(function () { window.prompt('Copy the link to this comment', link); });
+        }
         if (act === 'delete') {
             if (!window.confirm('Delete this comment and its replies? It can’t be undone here.')) return;
             return api('POST', 'comments/' + c.id + '/delete', {})

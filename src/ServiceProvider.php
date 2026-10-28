@@ -75,13 +75,13 @@ class ServiceProvider extends AddonServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/statamic-tools.php', 'statamic-tools');
     }
 
-    // While feedback is on, the team gets a digest of new comments every few minutes. It needs Laravel's scheduler
-    // running on the server: `php artisan schedule:run` every minute in cron.
+    // While feedback is on, the team gets a digest of new comments once reviewers go quiet: the command checks every
+    // five minutes and decides. It needs Laravel's scheduler running on the server: `php artisan schedule:run` every
+    // minute in cron.
     protected function schedule(Schedule $schedule)
     {
         if (FeedbackSettings::active()) {
-            $minutes = max(1, (int) config('statamic-tools.feedback.digest_minutes', 10));
-            $schedule->command('avoca:feedback:notify')->cron("*/{$minutes} * * * *")->withoutOverlapping();
+            $schedule->command('avoca:feedback:notify')->everyFiveMinutes()->withoutOverlapping();
         }
     }
 

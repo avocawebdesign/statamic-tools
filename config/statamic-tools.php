@@ -124,9 +124,14 @@ return [
         // machine; FEEDBACK_COMMIT=false turns it off.
         'commit' => env('FEEDBACK_COMMIT'),
         // Who hears about new comments and replies from reviewers: the reviewers marked team: true, and these
-        // addresses, comma separated. One digest email every digest_minutes, sent by Laravel's scheduler.
+        // addresses, comma separated. Laravel's scheduler checks every five minutes and sends one digest for a review:
+        // once reviewers have said nothing for digest_quiet_minutes, or once the oldest comment in it has waited
+        // digest_hold_minutes, whichever comes first.
         'notify' => env('FEEDBACK_NOTIFY'),
-        'digest_minutes' => 10,
+        'digest_quiet_minutes' => (int) env('FEEDBACK_DIGEST_QUIET', 30),
+        'digest_hold_minutes' => (int) env('FEEDBACK_DIGEST_HOLD', 120),
+        // Comments made, and replies added, in the last recent_days are flagged as new, in the panel and the command.
+        'recent_days' => 7,
         // Front-end pages that never get the widget.
         'exclude' => [],
     ],

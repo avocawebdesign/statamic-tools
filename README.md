@@ -216,8 +216,18 @@ gets their improvements. What the prototype says is the site's own, one folder p
   version: one whose page this version doesn't have is listed in All pages, under the page's old title and
   marked Not in this version, and one whose element has gone sits where it was made, ringed with a dashed line.
   Add comment and the comment counts take the site's primary button colours, as on the site; Feedback below says how a
-  site sets its own. The Sitemap and the Content model take comments too, from the Comments button in
+  site sets its own. While the Comments panel is shut, Add comment floats in the bottom right corner; pressed, the
+  panel opens, the button travels into its place at the foot of the panel and asks for a spot, and it travels back to
+  the corner as the panel shuts. The Sitemap and the Content model take comments too, from the Comments button in
   their title bars, pinned to a page box or a card; All pages lists them with the pages.
+- **New this week.** A comment made in the last week by anyone but you is marked New, and one with a reply from
+  anyone but you in that time New reply, as is the reply itself. The team's own words are never new to the team. The
+  panel says how many comments have something new, and a Resolved fold says when something in it is new, such as a
+  reply to a resolved comment. `recent_days` in the add-on's config sets the week, and `avoca:feedback` marks the same.
+- **Links to comments.** Copy link, in every comment's ⋯ menu, copies an address that opens the prototype on that
+  comment: its version while that's still served, its page, the frame it was made in when only the other is showing,
+  and the page options that were showing when it was made, with the comment open and its pin in sight. The digest's
+  links and `avoca:feedback` give the same address.
 - **Decisions** come from comments. The team (a control panel login, a reviewer marked `team: true`, or
   `avoca:feedback`) raises a comment as a decision, or ticks Make it a question as they post, and records what was
   decided. At sign-off, `php please avoca:feedback --write-decisions` copies them into `resources/site/decisions.md`.
@@ -261,6 +271,8 @@ FEEDBACK_ENABLED=true
 PROTOTYPE_PASSWORD=the-password-reviewers-are-given
 FEEDBACK_KEY=a-long-random-key-for-the-developer-only
 FEEDBACK_NOTIFY=studio@example.com          # optional: more addresses for the team's digest, comma separated
+FEEDBACK_DIGEST_QUIET=30                     # optional: minutes reviewers are quiet before the digest goes
+FEEDBACK_DIGEST_HOLD=120                     # optional: the longest, in minutes, a comment waits for the digest
 ```
 
 With a list of reviewers (below), the Comments tab shows on every page, since only their emails can sign in: send
@@ -281,6 +293,10 @@ sees anything: the tab only appears in a browser that has signed in to review, o
   `#avoca-feedback { --feedback-accent: #…; --feedback-accent-ink: #…; }`. For
   `avoca:feedback`, each comment also says in words where it is: the page builder block, read from the template
   comments the kit's partials leave in the page, and the nearest heading.
+- **New this week, and links,** as in the prototype: comments and replies from anyone but you in the last week are
+  marked New, and Copy link in a comment's ⋯ menu copies an address, `/page?feedback=<id>`, that opens the page with
+  the comment open and its pin in sight. `avoca:feedback` marks what reviewers said this week as new, gives each
+  comment's address, and with `--json` adds `recent` and `link` to each comment.
 - **Who.** Someone logged in to the control panel comments as the team, under their Statamic name, and so does a
   reviewer marked `team: true` on the list. Anyone else signs in with the password. A cookie remembers them for 30 days. It is the prototype's sign-in cookie, so signing in to
   either works in both, and changing the password signs everyone out of both.
@@ -306,8 +322,13 @@ sees anything: the tab only appears in a browser that has signed in to review, o
   history once committed. Edits aren't in the digest. A decision's outcome isn't edited: reopen it and record it again.
 - **Decisions.** The team can raise a comment as a decision to make, record what was decided, reopen it or take the
   decision off. Reviewers can't. Decisions made on the prototype carry from one version to the next.
-- **The team hears about new comments** by email: one digest every 10 minutes of what reviewers said since the last,
-  on the site and in the prototype, each with a link that opens it (through sign-in when needed). It goes to the
+- **The team hears about new comments** by email: one digest for a review, of what reviewers said since the last, on
+  the site and in the prototype, each with a link that opens it in place (through sign-in when needed). It waits until
+  reviewers have said nothing for 30 minutes, or until the oldest comment in it has waited two hours, whichever comes
+  first, so a client who spends an hour leaving twenty comments sends one email after they stop, and one commenting
+  all afternoon sends one every couple of hours. Inside, each reviewer's comments and replies are together, page by
+  page, and the subject says who: `6 new comments and 2 replies from Jane Client on Acme`. The scheduler checks every
+  five minutes; `--now` sends what is waiting without waiting. It goes to the
   reviewers marked `team: true` and any addresses in `FEEDBACK_NOTIFY`, through the site's own mail settings, and
   leaves out what the team said itself. Laravel's scheduler sends it, so the server needs
   `* * * * * cd /path/to/site && php artisan schedule:run` in cron; `php please avoca:feedback:notify --dry-run` says

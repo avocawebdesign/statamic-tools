@@ -234,14 +234,42 @@ class FeedbackTest extends TestCase
         $this->assertSame(0, Artisan::call('avoca:feedback'));
         $output = Artisan::output();
         $this->assertStringContainsString(Feedback::UNTRUSTED, $output);
-        $this->assertStringContainsString($comment['id'].' open  /about  Text block, near “About us”', $output);
+        $this->assertStringContainsString($comment['id'].' open new  /about  Text block, near “About us”', $output);
         $this->assertStringContainsString('Jane Client, ', $output);
         $this->assertStringContainsString('1440px wide (xl)', $output);
         $this->assertStringContainsString('  Make the heading shorter', $output);
+        $this->assertStringContainsString('open it: http://localhost/about?feedback='.$comment['id'], $output);
 
         $this->artisan('avoca:feedback', ['--resolve' => [$comment['id']], '--as' => 'Claude'])->expectsOutput("Resolved {$comment['id']}.")->assertSuccessful();
         $this->assertSame('Claude', $this->store->find($comment['id'])['resolved_by']['name']);
         $this->artisan('avoca:feedback')->expectsOutput('No open feedback.')->assertSuccessful();
+    }
+
+    public function test_what_reviewers_said_this_week_is_flagged_as_new_and_the_teams_own_words_are_not(): void
+    {
+        $old = $this->comment('/about', 'Old news');
+        $this->travel(8)->days();
+        $this->store->reply($old['id'], 'We changed it', ['name' => 'Sam Avoca', 'staff' => true]);
+        $this->store->reply($old['id'], 'Still too big', self::PERSON);
+        $fresh = $this->comment('/contact', 'Just now');
+
+        $this->assertSame(['comment' => false, 'replies' => [1]], FeedbackStore::recent($this->store->find($old['id'])));
+        $this->assertSame(['comment' => true, 'replies' => []], FeedbackStore::recent($this->store->find($fresh['id'])));
+
+        $this->assertSame(0, Artisan::call('avoca:feedback'));
+        $output = Artisan::output();
+        $this->assertStringContainsString($old['id'].' open new reply  /about', $output);
+        $this->assertStringContainsString($fresh['id'].' open new  /contact', $output);
+        $this->assertMatchesRegularExpression('/Sam Avoca, [^:]+: We changed it/', $output);
+        $this->assertMatchesRegularExpression('/Jane Client, [^:]+: new Still too big/', $output);
+
+        $this->assertSame(0, Artisan::call('avoca:feedback', ['--json' => true]));
+        $json = json_decode(Artisan::output(), true);
+        $this->assertSame([1], collect($json['comments'])->firstWhere('id', $old['id'])['recent']['replies']);
+        $this->assertStringEndsWith('/contact?feedback='.$fresh['id'], collect($json['comments'])->firstWhere('id', $fresh['id'])['link']);
+
+        // The panel works out the same in the browser, over the window the session gives it.
+        $this->signedIn()->getJson('/!/statamic-tools/feedback/session')->assertJsonPath('recent_days', 7);
     }
 
     public function test_a_comment_cannot_pass_for_the_commands_own_output(): void
@@ -433,23 +461,34 @@ class FeedbackTest extends TestCase
 
         $theirs = $this->comment('/about', 'Bigger heading, please');
         $ours = $this->store->create(['url' => '/contact', 'body' => 'Noted'], ['name' => 'Sam Avoca', 'staff' => true]);
-        $this->store->reply($ours['id'], 'Thanks!', self::PERSON);
+        $this->store->reply($ours['id'], "Thanks, it's great", self::PERSON);
         $this->store->reply($ours['id'], 'We will', ['name' => 'Sam Avoca', 'staff' => true]);
         $this->travel(2)->seconds();
 
-        $this->artisan('avoca:feedback:notify', ['--dry-run' => true])->expectsOutputToContain('Would send 2 new items')->assertSuccessful();
+        $this->artisan('avoca:feedback:notify', ['--dry-run' => true])
+            ->expectsOutputToContain('Would send 2 new items for sam@avoca.design, studio@avoca.design, in 29 minutes if nothing more comes in')
+            ->expectsOutputToContain('Jane Client: 1 comment and 1 reply')
+            ->assertSuccessful();
         Mail::assertNothingSent();
 
+        // Reviewers may still be going, so it waits for them to go quiet.
+        $this->artisan('avoca:feedback:notify')->expectsOutputToContain('Waiting for reviewers to go quiet')->assertSuccessful();
+        Mail::assertNothingSent();
+
+        $this->travel(30)->minutes();
         $this->artisan('avoca:feedback:notify')->assertSuccessful();
         Mail::assertSent(FeedbackDigest::class, function (FeedbackDigest $mail) use ($theirs) {
             $html = $mail->render();
+            $text = view('statamic-tools::feedback.digest-text', ['people' => $mail->people()])->render();
 
             return $mail->hasTo('sam@avoca.design') && $mail->hasTo('studio@avoca.design') && ! $mail->hasTo('jane@example.com')
                 && array_column($mail->items, 'kind') === ['comment', 'reply']
                 && $mail->items[0]['comment']['id'] === $theirs['id']
-                && $mail->envelope()->subject === '1 new comment and 1 reply on '.config('app.name')
+                && $mail->envelope()->subject === '1 new comment and 1 reply from Jane Client on '.config('app.name')
                 && str_contains($html, '/about?feedback='.$theirs['id'])
-                && ! str_contains($html, 'We will');
+                && str_contains($html, 'Replied to Sam Avoca’s comment')
+                && ! str_contains($html, 'We will')
+                && str_contains($text, "Thanks, it's great");
         });
 
         // Only what's new since goes in the next one, and nothing new sends nothing.
@@ -458,7 +497,41 @@ class FeedbackTest extends TestCase
         $this->store->reply($theirs['id'], 'Also the colour', self::PERSON);
         $this->travel(2)->seconds();
         $this->artisan('avoca:feedback:notify')->assertSuccessful();
+        Mail::assertSentCount(1);
+        // --now sends without waiting.
+        $this->artisan('avoca:feedback:notify', ['--now' => true])->assertSuccessful();
         Mail::assertSentCount(2);
+    }
+
+    public function test_a_review_is_one_email_and_a_long_one_is_one_every_couple_of_hours(): void
+    {
+        Mail::fake();
+        config(['statamic-tools.feedback.notify' => 'studio@avoca.design']);
+        $jo = ['name' => 'Jo Client', 'staff' => false];
+
+        // Two reviewers commenting every twenty minutes never go quiet for thirty, so the oldest waits two hours at most.
+        $first = $this->comment('/about', 'One');
+        for ($i = 0; $i < 5; $i++) {
+            $this->travel(20)->minutes();
+            $this->artisan('avoca:feedback:notify')->assertSuccessful();
+            $i % 2 ? $this->comment('/contact', 'Jane '.$i) : $this->store->create(['url' => '/about', 'body' => 'Jo '.$i], $jo);
+        }
+        Mail::assertNothingSent();
+        $this->travel(20)->minutes();
+        $this->artisan('avoca:feedback:notify')->assertSuccessful();
+
+        Mail::assertSent(FeedbackDigest::class, function (FeedbackDigest $mail) use ($first) {
+            $people = $mail->people();
+
+            // Each person's comments together, by page, in the order each first spoke.
+            return count($mail->items) === 6
+                && array_column($people, 'name') === ['Jane Client', 'Jo Client']
+                && array_column($people[0]['pages'], 'place') === ['/about', '/contact']
+                && $people[0]['pages'][0]['items'][0]['comment']['id'] === $first['id']
+                && $people[1]['comments'] === 3
+                && $mail->envelope()->subject === '6 new comments from Jane Client and Jo Client on '.config('app.name');
+        });
+        Mail::assertSentCount(1);
     }
 
     public function test_without_the_team_listed_nobody_is_emailed(): void
