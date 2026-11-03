@@ -612,6 +612,8 @@ How a site is hosted changes how you work on it, so ask the developer before you
 - Whether the server is set up for the full static cache, as [Static caching](#static-caching) describes: the strategy in the live `.env`, the rewrite rule, the deploy script's two cache lines, and Laravel's scheduler.
 - Whether the live site can send email, which form notifications need.
 
+**A server's git remote can hold the account's token.** On Ploi it is `https://<token>@github.com/...`, and one token serves every site on the account, so an exposed one means changing it on every site. Never run, suggest or ask the developer to paste anything that prints the remote on a server: `git remote -v`, `git remote get-url`, `git config --get remote.origin.url`, or verbose fetch and push output. `scripts/server-git.sh` hides it in everything it prints; a script of your own that talks to the remote does the same.
+
 On a site whose content is edited on the server:
 
 - Pull before you start work and again before you push, because the server may have pushed content in between.

@@ -2,6 +2,14 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## v0.2.2 (4 November 2026)
+
+### The server git script
+
+- **`scripts/server-git.sh` never prints a remote's token.** Ploi's remote is `https://<token>@github.com/...`, one token for every site on the account, and `status` printed it on its Remote line, so a status pasted into a chat or a ticket gave it away. Everything the script prints now passes through a filter that shows `https://***@github.com/...` and hides anything shaped like a GitHub token: the Remote line, every message it writes to the cron log, git's own messages from fetch and push, and the last push error it saves in `.git/avoca/` and shows in `status`, including one saved by an earlier version.
+- **The recipe's Hosting section says so too:** never run or ask for anything that prints a server's remote.
+- **To do on update:** bring the site's copy up to date, `php please avoca:site:script`, and commit it. A copy the site has changed says so: compare it with `--diff` and make the same change by hand, or take the add-on's with `--force`. A token that has already been printed somewhere is exposed whatever the script does now.
+
 ## v0.2.1 (28 October 2026)
 
 ### Feedback

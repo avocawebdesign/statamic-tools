@@ -76,8 +76,25 @@ BRANCH=""
 PATHS=()
 DIRTY=()
 
+# A remote's address can carry a token, as Ploi's https://<token>@github.com/... does, and a cron log or a status
+# pasted into a chat must never show it. Everything this script prints passes through redact, and git's own messages
+# from the network commands go through it too.
+redact() {
+    sed -E 's#([a-zA-Z][a-zA-Z0-9+.-]*://)[^/@[:space:]]+@#\1***@#g; s#(gh[opsur]_|github_pat_)[A-Za-z0-9_]{8,}#\1***#g'
+}
+
 say() {
-    printf '%s  %s  %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$MODE" "$*"
+    printf '%s  %s  %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$MODE" "$*" | redact
+}
+
+# Runs a git command that talks to the remote, passing its messages through redact and keeping its exit status.
+git_net() {
+    local output status=0
+    output="$(git "$@" 2>&1)" || status=$?
+    if [ -n "$output" ]; then
+        printf '%s\n' "$output" | redact >&2
+    fi
+    return "$status"
 }
 
 fail() {
@@ -297,7 +314,10 @@ push_branch() {
     # Never forces. $1 "loud" prints git's output on every failure; otherwise only
     # when pushing starts to fail, so a stuck site does not fill the cron log.
     local output
-    if output="$(git push --porcelain "$REMOTE" "HEAD:refs/heads/$BRANCH" 2>&1)"; then
+    local status=0
+    output="$(git push --porcelain "$REMOTE" "HEAD:refs/heads/$BRANCH" 2>&1)" || status=$?
+    output="$(printf '%s\n' "$output" | redact)"
+    if [ "$status" -eq 0 ]; then
         if [ -f "$STATE/push-failed-since" ]; then
             say "Pushing works again."
         fi
@@ -334,7 +354,7 @@ undo_merge_and_fail() {
     conflicts="$(git diff --name-only --diff-filter=U)"
     git merge --abort
     rescue="server-content/$(date +%Y%m%d-%H%M%S)"
-    if git push --quiet "$REMOTE" "HEAD:refs/heads/$rescue"; then
+    if git_net push --quiet "$REMOTE" "HEAD:refs/heads/$rescue"; then
         say "The server's commits are saved on the branch $rescue."
     else
         say "Could not push the branch $rescue. The server's commits are still on $BRANCH in $TOP."
@@ -423,7 +443,7 @@ cmd_sync() {
     local remote result=up-to-date attempt
     remote="$(remote_ref)"
     for attempt in 1 2 3; do
-        if ! git fetch --quiet "$REMOTE" "+refs/heads/$BRANCH:$remote"; then
+        if ! git_net fetch --quiet "$REMOTE" "+refs/heads/$BRANCH:$remote"; then
             fail "Could not fetch $REMOTE/$BRANCH. Check the server's key or connected account."
         fi
 
@@ -471,7 +491,7 @@ cmd_status() {
     BRANCH="${AVOCA_GIT_BRANCH:-$(cat "$STATE/branch" 2>/dev/null || echo "$current")}"
     echo "Working copy      $TOP"
     echo "Branch            $current, at $(git log -1 --format='%h %s')"
-    echo "Remote            $(git remote get-url "$REMOTE" 2>/dev/null || echo "no remote called $REMOTE")"
+    echo "Remote            $(git remote get-url "$REMOTE" 2>/dev/null | redact || echo "no remote called $REMOTE")"
     echo "Not yet pushed    $(ahead_count) commit(s), as of the last fetch or push"
     echo "Uncommitted       $(git status --porcelain --untracked-files=all | wc -l | tr -d ' ') path(s) in the working copy"
     if [ -f "$STATE/dirty-since" ]; then
@@ -479,7 +499,7 @@ cmd_status() {
     fi
     if [ -f "$STATE/push-failed-since" ]; then
         echo "Push failing      since $(when "$(cat "$STATE/push-failed-since")"). Last output:"
-        sed 's/^/    /' "$STATE/push-failed-output" 2>/dev/null || true
+        redact < "$STATE/push-failed-output" 2>/dev/null | sed 's/^/    /' || true
     fi
     if [ -f "$STATE/last-run" ]; then
         echo "Commit script     last ran $(minutes_since "$(cat "$STATE/last-run")") minute(s) ago"
