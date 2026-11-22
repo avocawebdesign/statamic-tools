@@ -50,6 +50,8 @@ The rest are `--sk-ink` (text), `--sk-ground` (page background), `--sk-on-accent
 | `resources/site/sets/<handle>.md` | people | the content page and the catalogue |
 | `resources/site/design.md` | people | the catalogue |
 | `resources/site/facts.md` | people and AI agents, from the brief | AI agents writing copy, as `recipe/facts.md` says |
+| `resources/site/voice.md` | people and AI agents, from discovery | AI agents writing copy, as `recipe/copy.md` says |
+| `resources/site/customer-voice.md` | people and AI agents, from interviews, reviews and calls | AI agents writing copy, as `recipe/copy.md` says |
 | `resources/site/catalogue.md` | `avoca:site:catalogue` | AI editors |
 | `resources/site/collections/<handle>.md` | `avoca:make:collection`, then people and AI agents | AI agents finishing or changing a collection |
 | `resources/site/editor-access.yaml` | people | `avoca:site:permissions`, the automatic editor role updates and `avoca:site:check` |

@@ -23,6 +23,10 @@ The recipe stays in this package. A site refers to it rather than copying it, so
 
 `facts.md` is how an agent writes copy without inventing anything: the site keeps the facts its pages may state in `resources/site/facts.md`, and the workflow says how to start that file, fill its gaps, write from it and change a fact everywhere it appears. A site doesn't import it, because only copy needs it: the recipe's Facts and proof section sends an agent to it. Keep its list of sections in step with the starter kit's `resources/site/facts.md`.
 
+## Writing copy
+
+`copy.md` is how an agent writes copy that sounds like the business and its customers rather than like a machine: the site's `resources/site/voice.md` and `resources/site/customer-voice.md`, how to capture customer language, how to write a page, the patterns that never go in, and `scripts/lint-copy.mjs`, which checks a draft for them. Like `facts.md`, a site doesn't import it: the recipe's Writing copy section sends an agent to it. Keep its list of patterns and the script's in step.
+
 ## What it points to instead of naming blocks
 
 The recipe never names blocks or sets, because every site has its own. It sends agents to:
@@ -30,7 +34,8 @@ The recipe never names blocks or sets, because every site has its own. It sends 
 - `resources/site/catalogue.md` and `/site/content`, for what the site already has;
 - `php please avoca:library --json`, for what the library can install;
 - `resources/site/collections/<handle>.md`, for the decisions behind each collection;
-- `resources/site/facts.md`, for what the site's pages may claim.
+- `resources/site/facts.md`, for what the site's pages may claim;
+- `resources/site/voice.md` and `resources/site/customer-voice.md`, for how it says it.
 
 Keep it that way when you edit it.
 

@@ -596,6 +596,14 @@ Every claim a site makes has to be true. Before you write or change copy, such a
 - Where a page needs a fact you haven't been given, write `[NEEDS PROOF: what is needed]` and add it to the file's Open questions. Put `[CLIENT TO APPROVE]` beside a customer outcome the client hasn't approved.
 - `avoca:site:check` warns for every file in `content/` that still has a marker, and a site doesn't launch with one.
 
+## Writing copy
+
+How copy sounds is in `vendor/avocadesign/statamic-tools/recipe/copy.md`. Read it with `facts.md` before you write or change copy. In short:
+
+- The site's voice and audiences are in `resources/site/voice.md`, and customers' own words in `resources/site/customer-voice.md`. Write from the customer's situation and in their language.
+- Check every draft with `node vendor/avocadesign/statamic-tools/scripts/lint-copy.mjs <file> --self "<business name>"`, and fix every ban before anyone sees it.
+- Present one recommended version with a few short alternatives, and list the facts and markers it uses.
+
 ## Static caching
 
 Every Avoca site runs Statamic's static cache with the full strategy in production: `STATAMIC_STATIC_CACHING_STRATEGY=full` in the live `.env`, as the kit's production example has it. The first visit to a page renders it and saves the HTML in `public/static`, and from then on the web server sends that file without starting PHP. PHP is still behind the site, so forms, `nocache` and requests from the browser to the site's own server all work.
