@@ -9,6 +9,7 @@ use Avocadesign\StatamicTools\Permissions\PermissionSets;
 use Avocadesign\StatamicTools\Site\AgencyLogo;
 use Avocadesign\StatamicTools\Site\Blocks;
 use Avocadesign\StatamicTools\Site\Catalogue;
+use Avocadesign\StatamicTools\Site\Facts;
 use Avocadesign\StatamicTools\Site\Launch;
 use Avocadesign\StatamicTools\Site\Llms;
 use Avocadesign\StatamicTools\Site\CriticalCss;
@@ -22,8 +23,9 @@ use Illuminate\Http\Request;
 /**
  * Proves the /site pages and the site's AI block catalogue still reflect the fieldsets: every block and set
  * renders, and with --strict every one has guidance and the committed catalogue is current. Meant for CI. It also
- * warns, and never fails, when the editor role is missing permissions for a structure that isn't opted out, or when a
- * library item the site hasn't installed uses a handle the site already has.
+ * warns, and never fails, when the editor role is missing permissions for a structure that isn't opted out, when a
+ * library item the site hasn't installed uses a handle the site already has, or when the content still has a claim
+ * marked for proof or for the client's approval.
  */
 class SiteCheck extends Command
 {
@@ -113,6 +115,13 @@ class SiteCheck extends Command
             ->map(fn ($collection) => $collection->handle())
             ->values()->all();
         foreach (Llms::problems(is_string($llms) ? $llms : null, $routed) as $problem) {
+            $this->line('  <fg=yellow>!</> '.$problem);
+            $warnings++;
+        }
+
+        // A claim nobody has settled yet: recipe/facts.md marks a missing fact or an unapproved outcome rather than
+        // inventing one, and neither should go live. Always a warning: markers are expected while a site is written.
+        foreach (Facts::check() as $problem) {
             $this->line('  <fg=yellow>!</> '.$problem);
             $warnings++;
         }

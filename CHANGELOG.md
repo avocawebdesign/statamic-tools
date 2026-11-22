@@ -2,6 +2,16 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## v0.2.4 (23 November 2026)
+
+### Facts and proof
+
+- **A site keeps the facts its pages may state in `resources/site/facts.md`,** each with where it came from, when it was checked and whether it can be published. The new `recipe/facts.md` is how an agent writes from it: never invent a number, customer or outcome; write `[NEEDS PROOF: what is needed]` where a fact is missing, and put `[CLIENT TO APPROVE]` beside an outcome the client hasn't approved; open a page with the reader's situation and the strongest real fact; and when a fact changes, find and rewrite every page that states it. It is adapted from Ilias Ism's proof-kb, under its MIT licence.
+- **The recipe sends an agent there before it writes copy,** in a Facts and proof section of its own, rather than importing the workflow into every session. The plan lists the facts new copy uses and the markers it leaves, and Launch checks that none are left.
+- **`avoca:site:check` warns for each file in `content/` that still has a marker,** with how many of each. It never fails on one, even with `--strict`, because markers are expected while a site is being written. The review's comments in `content/feedback` aren't read.
+- **The starter kit ships `resources/site/facts.md`** for new sites, with the sections the workflow names.
+- **To do on update:** nothing. A site made before the kit shipped the file creates it the first time copy needs it, as `recipe/facts.md` says.
+
 ## v0.2.3 (23 November 2026)
 
 ### The prototype

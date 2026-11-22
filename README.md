@@ -14,7 +14,7 @@ The machinery Avoca Design sites share: reference pages for clients, plus the ch
 - `php please avoca:site:catalogue`: writes the site's AI block catalogue.
 - `php please avoca:make:collection`: makes a collection with a page builder or custom blueprint, a listing block, editor access and a record an AI agent finishes it from.
 - `php please avoca:site:permissions`: gives the editor role the permissions for every collection, taxonomy, navigation, global set and asset container that isn't opted out. `--dry-run` lists what it would add.
-- `php please avoca:site:check`: checks the reference pages, guidance files and catalogue against the fieldsets. Add `--strict` in CI to fail on missing guidance or a stale catalogue, or `--stubs` to create guidance files for blocks and sets that have none. It also warns when a library item the site hasn't installed uses a handle the site already has, and while form emails or the site header still show the agency's logo rather than the client's, and when feedback is switched on in production.
+- `php please avoca:site:check`: checks the reference pages, guidance files and catalogue against the fieldsets. Add `--strict` in CI to fail on missing guidance or a stale catalogue, or `--stubs` to create guidance files for blocks and sets that have none. It also warns when a library item the site hasn't installed uses a handle the site already has, while form emails or the site header still show the agency's logo rather than the client's, while a file in `content/` still has a `[NEEDS PROOF` or `[CLIENT TO APPROVE` marker (see Facts and proof in the recipe), and when feedback is switched on in production.
 - `php please avoca:site:audit`: reads the site's templates, CSS and scripts against the recipe's rules for tokens, styling, critical CSS, scripts, images and comments, and lists what breaks them. Advisory unless `--strict`. See [Audit](#audit).
 - `php please avoca:check-name {handle}`: says whether a handle is free for a new block, set or collection, as [Names](#names) describes.
 - `php please avoca:prototype:version {version}`: starts a new version of the site's prototype as a copy of the newest. See [Prototype](#prototype).
@@ -49,6 +49,7 @@ The rest are `--sk-ink` (text), `--sk-ground` (page background), `--sk-on-accent
 | `resources/site/blocks/<handle>.md` | people | the content page and the catalogue |
 | `resources/site/sets/<handle>.md` | people | the content page and the catalogue |
 | `resources/site/design.md` | people | the catalogue |
+| `resources/site/facts.md` | people and AI agents, from the brief | AI agents writing copy, as `recipe/facts.md` says |
 | `resources/site/catalogue.md` | `avoca:site:catalogue` | AI editors |
 | `resources/site/collections/<handle>.md` | `avoca:make:collection`, then people and AI agents | AI agents finishing or changing a collection |
 | `resources/site/editor-access.yaml` | people | `avoca:site:permissions`, the automatic editor role updates and `avoca:site:check` |

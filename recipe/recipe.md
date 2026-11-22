@@ -588,6 +588,14 @@ by itself and leaves the rest to you. Nothing updates it when a site grows, so:
   serves, and where. The entries come from the collection tags; the framing around them is the part worth writing.
 - The field takes Antlers, so nothing in it goes stale: it is rendered from the site's content, and again each time the static cache clears.
 
+## Facts and proof
+
+Every claim a site makes has to be true. Before you write or change copy, such as a page's text, a block's heading, a case study, a meta description or `llms.txt`, read `vendor/avocadesign/statamic-tools/recipe/facts.md` and follow it. In short:
+
+- The facts a site's pages may state are in `resources/site/facts.md`, each with its source. Take numbers, customers, outcomes, sectors, places and years from there, from the site's content or from the brief, and from nowhere else.
+- Where a page needs a fact you haven't been given, write `[NEEDS PROOF: what is needed]` and add it to the file's Open questions. Put `[CLIENT TO APPROVE]` beside a customer outcome the client hasn't approved.
+- `avoca:site:check` warns for every file in `content/` that still has a marker, and a site doesn't launch with one.
+
 ## Static caching
 
 Every Avoca site runs Statamic's static cache with the full strategy in production: `STATAMIC_STATIC_CACHING_STRATEGY=full` in the live `.env`, as the kit's production example has it. The first visit to a page renders it and saves the HTML in `public/static`, and from then on the web server sends that file without starting PHP. PHP is still behind the site, so forms, `nocache` and requests from the browser to the site's own server all work.
@@ -725,6 +733,7 @@ Before you change any file, write a short plan and wait for the developer to app
 - anything that depends on how the site is hosted, and anything that needs `nocache` or keeping out of the static cache;
 - for a design from Paper: every value that matched no token, and what you propose for each one;
 - for a design with real contact details: each one beside what Site Details holds, and whether to import it;
+- for copy: the facts it uses from `resources/site/facts.md`, and every marker it leaves, as [Facts and proof](#facts-and-proof) says;
 - anything you will leave out.
 
 Don't build until the developer approves. If the work stops matching the plan, stop and say so.
@@ -792,6 +801,7 @@ A site launches when it goes live for the client's visitors, after their sign-of
    - the client's logo in the form emails and the site header, as [Client sign-off](#5-client-sign-off-on-the-staging-preview) says;
    - the structured data checked in Google's Rich Results Test, as [Structured data](#structured-data) says;
    - `llms.txt` written, with no placeholders, as [What a site tells language models](#what-a-site-tells-language-models) says;
+   - no `[NEEDS PROOF` or `[CLIENT TO APPROVE` marker left in `content/`, as [Facts and proof](#facts-and-proof) says;
    - every routed collection in the SEO global's sitemap collections, unless the plan says otherwise;
    - the server ready for the full static cache: the strategy, the rewrite rule, the deploy script's two cache lines and the scheduler, as [Static caching](#static-caching) says;
    - feedback switched off: `FEEDBACK_ENABLED=false`.
