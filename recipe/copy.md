@@ -88,3 +88,16 @@ If the agent has a humanizer skill (such as blader/humanizer), run it after the 
 ## Presenting copy
 
 Give one recommended version, then two to four short alternatives, each with a one-line reason. List the facts the copy uses and every `[NEEDS PROOF]` or `[CLIENT TO APPROVE]` marker it leaves, as the recipe's plan step asks.
+
+## Answer options
+
+AI answers and featured snippets lift short passages that answer a question on their own. Don't reshape a page to provide them: the copy has to sell, and read cleanly as a page. Offer them instead.
+
+When a section touches a question the site tracks (`seo/tracking/questions.csv`, where the site has one) or one the customer voice shows people asking, add an answer option to the alternatives:
+
+- Two to four sentences that answer the question without the rest of the page, with the subject named rather than "this" or "it".
+- One fact from `facts.md` where there is one: a number, a place, a time frame.
+- The same voice and checks as everything else. It is an alternative, not a block of FAQ text.
+- Say which question it answers, in the one-line reason.
+
+Whoever approves the copy chooses. If an option is used, mark the question `answered` in `questions.csv` with the page. If none fits the page, leave the question `not yet`: it may need its own page or section, which is a decision for the page plan, not the copy.

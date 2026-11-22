@@ -9,6 +9,7 @@ Avoca Tools uses semantic versioning. While the version starts with 0, a release
 - **`recipe/copy.md` is how an agent writes copy that sounds like the business,** alongside `recipe/facts.md`, which decides what it may claim. A site keeps its voice and audiences in `resources/site/voice.md` and customers' own words in `resources/site/customer-voice.md`. The workflow covers capturing customer language (verbatim, sourced, testimonials left in their collection, enquiries never named), interview questions, writing a page from the reader's situation, and the patterns that make copy read as machine-written, with what to write instead. It was worked out on avoca.design, and adapts patterns from blader/humanizer (MIT licence).
 - **`scripts/lint-copy.mjs` checks a draft for those patterns,** with `--self "<business name>"` to catch the business talking about itself in the third person. It skips long quotes, flags any `[NEEDS PROOF]` or `[CLIENT TO APPROVE]` marker left in, and exits 1 on a ban.
 - **The recipe sends an agent there before it writes copy,** in a Writing copy section after Facts and proof.
+- **Answer options.** Where a section touches a question customers ask, the alternatives include a short answer that stands on its own, for AI answers and snippets, without changing the shape of the page.
 - **To do on update:** nothing. A site creates `voice.md` and `customer-voice.md` the first time copy needs them. The starter kit should ship stubs of both, as it does `facts.md`.
 
 ## v0.2.4 (23 November 2026)
