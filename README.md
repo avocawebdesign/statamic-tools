@@ -244,8 +244,9 @@ gets their improvements. What the prototype says is the site's own, one folder p
   from everyone. It hides the tab, not the data: `data.js` is in the page either way. Selecting an item opens a
   drawer from the right with its fields, relationships and pages; what the model holds sits in columns below the diagram.
 - **Display options** choose the frames, whether they scroll together, and the comment pins. Frames show just the
-  page, with no browser bar. Both shows the desktop as a 1440 by 900 laptop scaled to fit beside the phone. Desktop on
-  its own fills the stage edge to edge at full size, so the page lays out at the width it has. A site that needs
+  page, with no browser bar. It opens on Desktop, which fills the stage edge to edge at full size, so the page lays out
+  at the width it has; a narrow screen shows the phone until its viewer picks a frame themselves, and a frame picked
+  there is kept for that browser. Both shows the desktop as a 1440 by 900 laptop scaled to fit beside the phone. A site that needs
   another size, such as a tablet, adds it with `DEVICES` in `data.js`; it shows on its own.
 - **The site's name** is `APP_NAME`, unless `PROJECT.name` in `data.js` gives one. The interface is always dark, so the
   white pages stand out.

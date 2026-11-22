@@ -2,6 +2,17 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## v0.2.3 (23 November 2026)
+
+### The prototype
+
+- **It opens on Desktop, not both frames.** A reviewer's first look is the page filling the stage, rather than a 1440 by 900 laptop scaled to a third of it beside a phone. Both and Mobile are a click away under Display options, and a frame picked there is kept for that browser. A narrow screen still shows the phone, until its viewer picks a frame themselves.
+
+### Feedback
+
+- **A sign-in the server refuses now asks again for what it will accept.** Both panels, the site's and the prototype's, ask the server once as the page loads whether to collect a name or an email address, so a page left open from before the site listed its reviewers went on asking for a name, which the server then refused: the reviewer read "Enter your email address" under a field labelled Your name, with nothing to type it into short of reloading. A failed sign-in now takes the session again and redraws the form with it, so the field follows the list.
+- **To do on update:** nothing.
+
 ## v0.2.2 (4 November 2026)
 
 ### The server git script

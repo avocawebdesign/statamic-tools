@@ -5,7 +5,7 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const STORE = `${PROJECT.key}-prototype-v1`;
 const state = Object.assign({
-    view: 'wireframes', route: '/', frames: 'both', pins: true, rail: 'notes',
+    view: 'wireframes', route: '/', frames: 'desktop', framesPicked: false, pins: true, rail: 'notes',
     journey: JOURNEYS[0]?.id, step: -1, modes: { desktop: 'pinned', mobile: 'swipe' }, entity: null,
     sync: true, notes: false, side: false, railTab: 'notes', fbList: 'page', fbShow: 'open', fbScope: 'version',
     opts: {}, optsOpen: false
@@ -22,7 +22,7 @@ const VIEWS = Object.assign({ model: true, model_team_only: false }, window.PROT
 // A view saved by an older prototype, or one this viewer doesn't have, opens the pages instead.
 if (!['wireframes', 'sitemap', 'model'].includes(state.view) || (state.view === 'model' && !VIEWS.model)) state.view = 'wireframes';
 function save() {
-    try { localStorage.setItem(STORE, JSON.stringify({ view: state.view, route: state.route, frames: state.frames, pins: state.pins, modes: state.modes, entity: state.entity, journey: state.journey, sync: state.sync, railTab: state.railTab, fbList: state.fbList, fbShow: state.fbShow, fbScope: state.fbScope, opts: state.opts, welcomed: state.welcomed })); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem(STORE, JSON.stringify({ view: state.view, route: state.route, frames: state.frames, framesPicked: state.framesPicked, pins: state.pins, modes: state.modes, entity: state.entity, journey: state.journey, sync: state.sync, railTab: state.railTab, fbList: state.fbList, fbShow: state.fbShow, fbScope: state.fbScope, opts: state.opts, welcomed: state.welcomed })); } catch (e) { /* storage unavailable */ }
 }
 const pagesFor = id => ROUTES.filter(r => (NOTES[r.key]?.fed || []).includes(id));
 
@@ -140,6 +140,8 @@ function layoutFrames() {
     let show = state.frames === 'both' || FR[state.frames] ? state.frames : 'both';
     // Both frames need room for the phone at 55% and the laptop at 30%.
     if (show === 'both' && (narrow || area.clientWidth - 32 < 390 * 0.55 + 44 + 1440 * 0.3)) show = 'mobile';
+    // Desktop is the default, so a narrow screen shows the phone until this viewer picks a frame themselves.
+    if (show === 'desktop' && narrow && !state.framesPicked) show = 'mobile';
     // Frames show just the page, with no browser bar. On its own the desktop fills the stage, edge to edge at full size.
     area.classList.toggle('solo-desktop', show === 'desktop');
     const W = area.clientWidth - (show === 'desktop' ? 0 : 32);
@@ -1243,7 +1245,10 @@ function fbSubmit(f) {
         const pass = f.querySelector('[name="password"]');
         return fbRun(fbApi('POST', 'sign-in', { name: val('[name="name"]') || null, email: val('[name="email"]') || null, password: pass ? pass.value : null })
             .then(() => fbApi('GET', 'session'))
-            .then(s => { fb.session = s; fbViewer(); return fbLoad(); }), f, 'signin');
+            .then(s => { fb.session = s; fbViewer(); return fbLoad(); })
+            // A page opened before the site listed its reviewers still asks for a name, which the server now refuses:
+            // take the session again, so the form asks for the email address it will accept.
+            .catch(err => fbApi('GET', 'session').then(s => { fb.session = s; }).catch(() => {}).then(() => { throw err; })), f, 'signin');
     }
     if (kind === 'new') {
         const body = val('textarea');
@@ -1653,7 +1658,7 @@ document.addEventListener('click', e => {
     if (t.id === 'nav-toggle') { $('#sidebar').classList.contains('open') ? closeSidebar() : openSidebar(); return; }
     if (t.hasAttribute('data-journey-end')) { endJourney(); return; }
     if (t.dataset.view) { if (t.dataset.view === 'model') state.entity = null; setView(t.dataset.view); return; }
-    if (t.dataset.frames) { setFrames(t.dataset.frames); return; }
+    if (t.dataset.frames) { state.framesPicked = true; setFrames(t.dataset.frames); return; }
     if (t.dataset.go) { endJourney(true); navigate(t.dataset.go); return; }
     if (t.dataset.entity && VIEWS.model) { state.entity = t.dataset.entity; setView('model'); return; }
     // Selecting an item again clears it.

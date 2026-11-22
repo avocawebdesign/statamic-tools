@@ -1111,7 +1111,11 @@
                 state.loading = null;
                 state.error = null;
                 return load();
-            }).then(render).catch(function (error) { fail(error, 'sign-in'); });
+            }).then(render).catch(function (error) {
+                // A page opened before the site listed its reviewers still asks for a name, which the server now
+                // refuses: take the session again, so the form asks for the email address it will accept.
+                loadSession().catch(function () {}).then(function () { fail(error, 'sign-in'); });
+            });
             return;
         }
 
