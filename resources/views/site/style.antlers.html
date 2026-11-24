@@ -201,6 +201,65 @@
     </table>
 </div></section>
 
+{{# 4b. Form fields: every Forms 2 fieldtype through the site's own field views #}}
+{{ if form_fields }}
+<section class="sk-section fluid-grid" data-sk="forms" id="sk-forms"><div class="sk-inner span-content">
+    <h2 class="sk-title">Form fields</h2>
+    <p class="sk-lead">One field of every Forms 2 fieldtype ({{ form_fields:count }}), drawn by the site's field views in <code>resources/views/vendor/statamic/forms/fields</code>, with each fieldtype's own example settings. It is not a saved form and does not post anywhere. Labels and error lines belong to the site's form template, so they are drawn plainly here.
+        {{ if form_fields:from_statamic }}<span class="sk-badge sk-missing">{{ form_fields:from_statamic }} on Statamic's default view</span>{{ /if }}</p>
+    {{ form:create :in="form_fields:handle" js="alpine:form" attr:onsubmit="return false" attr:novalidate="novalidate" }}
+        <div x-data="skFormFields" class="sk-form-fields">
+            <div class="sk-row sk-controls">
+                <label><input type="checkbox" x-model="showErrors"> Show the error state</label>
+                <label><input type="checkbox" x-model="showValues"> Show the values the form holds</label>
+            </div>
+            {{ fields }}
+                {{ if sk_category }}<h3 class="sk-h sk-form-group">{{ sk_category }}</h3>{{ /if }}
+                <div class="sk-form-row" data-sk-field="{{ handle }}">
+                    <div class="sk-recipe">
+                        <strong>{{ sk_title }}</strong> · {{ handle }}<br>
+                        {{ if sk_site_view }}{{ sk_view }}{{ else }}<span class="sk-badge sk-missing">Statamic default</span> {{ sk_view }}{{ /if }}
+                    </div>
+                    <div class="sk-form-field">
+                        {{ unless hide_display || type == 'spacer' }}
+                            <label class="sk-form-label" for="{{ id }}">{{ display }}{{ if validate | contains('required') }} <sup>*</sup>{{ /if }}</label>
+                            {{ if instructions }}<span class="sk-note" id="{{ id }}-instructions">{{ instructions }}</span>{{ /if }}
+                        {{ /unless }}
+                        {{ field }}
+                        <template x-if="form.invalid('{{ handle }}')"><span class="sk-form-error" x-text="form.errors['{{ handle }}']"></span></template>
+                    </div>
+                </div>
+            {{ /fields }}
+            <pre class="sk-form-values" x-show="showValues" x-text="values()"></pre>
+        </div>
+    {{ /form:create }}
+</div></section>
+<script>
+// A stand-in for the Precognition form the site's field views bind to (x-model="form.x", form.validate(), form.invalid()),
+// so every field works without posting anything. "Show the error state" marks every field invalid at once.
+document.addEventListener('alpine:init', () => Alpine.data('skFormFields', () => ({
+    showErrors: false,
+    showValues: false,
+    form: {},
+    init() {
+        const self = this;
+        const values = JSON.parse(this.$root.closest('form').getAttribute('x-data') || '{}').form || {};
+        this.form = Object.assign(values, {
+            validate() {},
+            invalid() { return self.showErrors },
+            get errors() { return new Proxy({}, { get: () => 'This is how an error message reads.' }) },
+            get hasErrors() { return self.showErrors },
+        });
+    },
+    values() {
+        const out = {};
+        Object.keys(this.form).forEach(k => { if (typeof this.form[k] !== 'function' && ! ['errors', 'hasErrors'].includes(k)) out[k] = this.form[k] });
+        return JSON.stringify(out, (k, v) => v instanceof File ? v.name : v, 2);
+    },
+})));
+</script>
+{{ /if }}
+
 {{# 5. Colour schemes with text and every button #}}
 <section class="sk-section" data-sk="schemes"><div class="fluid-grid"><div class="sk-inner span-content">
     <h2 class="sk-title">Colour schemes</h2>

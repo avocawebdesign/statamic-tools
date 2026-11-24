@@ -2,6 +2,13 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## Unreleased
+
+### The style reference
+
+- **`/site/style` has a Form fields section,** with one field of every Forms 2 fieldtype drawn by the site's own field views. Each field takes its fieldtype's own example settings, the ones the control panel previews, so a fieldtype Statamic or an addon adds later appears without a change here. It is an unsaved form put where `{{ form:create }}` finds it, so nothing is created in `resources/forms` and nothing posts. Each row names the view that drew it, and a field still on Statamic's default view is badged, which makes the section a checklist for styling a site's forms. Two switches show every field in its error state and the values the form holds, through a stand-in for the Precognition form the views bind to. `?only=forms` shows the section alone.
+- **To do on update:** nothing. On a site before Statamic 6.44 the section is left out.
+
 ## v0.2.5 (23 November 2026)
 
 ### Writing copy

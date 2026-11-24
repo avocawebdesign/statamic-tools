@@ -8,6 +8,8 @@ use Avocadesign\StatamicTools\Site\Samples;
 use Avocadesign\StatamicTools\Site\Spacing;
 use Illuminate\Http\Response;
 use Statamic\Facades\Asset;
+use Statamic\Facades\Blink;
+use Statamic\Facades\Form;
 
 class SiteStyleController extends SiteController
 {
@@ -44,6 +46,7 @@ class SiteStyleController extends SiteController
             // The matrix also shows the open-in-new-tab treatment, once for a button and once inline.
             'button_rows' => [...$buttons, ...$this->newTabRows($buttons)],
             'image_variants' => $this->images($cfg['image_set']),
+            'form_fields' => $this->formFields(),
         ]);
     }
 
@@ -237,6 +240,75 @@ class SiteStyleController extends SiteController
             (bool) preg_match('/^col-(\d+)\s*\/\s*span\s+(\d+)$/', $value, $m) => "{$m[2]} columns from column {$m[1]}",
             default => $value,
         };
+    }
+
+    /** The handle of the unsaved form the Form fields section renders. Nothing is ever saved under it. */
+    public const FORM_HANDLE = 'style_reference_fields';
+
+    /**
+     * One field of every Forms 2 fieldtype, in an unsaved form the page renders through the site's own field views.
+     * The config is each fieldtype's own example(), the same one the control panel previews, so a fieldtype Statamic
+     * or an addon adds later turns up here without a change. The form is put in Blink under the handle {{ form:create }}
+     * looks up, which is how the tag takes a form that was never saved.
+     *
+     * @return array{handle: string, count: int, from_statamic: int}|null null before Statamic 6.44, which has no Forms 2.
+     */
+    private function formFields(): ?array
+    {
+        if (! app()->bound('statamic.form-fieldtypes')) {
+            return null;
+        }
+
+        // The order the control panel's field picker groups them in.
+        $categories = ['text', 'contact', 'choice', 'number', 'rate', 'datetime', 'media', 'structure', 'information'];
+        // Four fieldtypes have no example of their own.
+        $samples = [
+            'heading' => ['display' => 'About your project', 'subheading' => 'A heading inside the form, with an optional subheading.'],
+            'paragraph' => ['display' => 'Paragraph', 'text' => "A paragraph inside the form.\nIts line breaks are kept."],
+            'spacer' => ['display' => 'Spacer'],
+            'group' => ['display' => 'Postal address', 'fields' => [
+                ['handle' => 'street', 'field' => ['type' => 'short_answer', 'display' => 'Street', 'validate' => ['required']]],
+                ['handle' => 'city', 'field' => ['type' => 'short_answer', 'display' => 'Town or city', 'width' => 50]],
+                ['handle' => 'postcode', 'field' => ['type' => 'short_answer', 'display' => 'Postcode', 'width' => 50]],
+            ]],
+        ];
+        // The first text field also shows a required marker and instructions.
+        $extras = ['short_answer' => ['validate' => ['required'], 'instructions' => 'Instructions, as an editor writes them under the label.']];
+
+        $rows = collect(app('statamic.form-fieldtypes'))
+            ->map(fn (string $class, string $handle) => [$handle, app($class)])
+            ->sortBy(fn ($pair) => [
+                array_search($pair[1]->categories()[0] ?? 'zz', $categories, true) === false ? 99 : array_search($pair[1]->categories()[0], $categories, true),
+                $pair[1]->order() ?? 50,
+                $pair[1]->title(),
+            ])
+            ->values();
+
+        $fields = [];
+        $previous = null;
+        $fromStatamic = 0;
+        foreach ($rows as [$handle, $fieldtype]) {
+            $view = $fieldtype->view();
+            $path = (string) rescue(fn () => view()->getFinder()->find($view), '', false);
+            $isSite = $path !== '' && str_starts_with($path, resource_path());
+            $fromStatamic += $isSite ? 0 : 1;
+            $category = $fieldtype->categories()[0] ?? 'other';
+            $fields[] = ['handle' => $handle, 'field' => [
+                'type' => $handle,
+                ...($fieldtype->example()['config'] ?? $samples[$handle] ?? ['display' => $fieldtype->title()]),
+                ...($extras[$handle] ?? []),
+                // Read back by the template: the fieldtype's name, the view that drew it, and where each group starts.
+                'sk_title' => $fieldtype->title(),
+                'sk_view' => $isSite ? str_replace(base_path().'/', '', $path) : $view,
+                'sk_site_view' => $isSite,
+                'sk_category' => $category === $previous ? null : ucfirst($category),
+            ]];
+            $previous = $category;
+        }
+
+        Blink::put('form-'.self::FORM_HANDLE, Form::make(self::FORM_HANDLE)->title('Form fields')->formFields(['fields' => $fields]));
+
+        return ['handle' => self::FORM_HANDLE, 'count' => count($fields), 'from_statamic' => $fromStatamic];
     }
 
     /** The image set rendered with every value of each of its option fields, one factor at a time. */
