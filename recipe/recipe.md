@@ -20,6 +20,7 @@ Don't edit this file in `vendor/`. If a step is wrong, missing or contradicted b
 7. Run `php please avoca:library --json` to see what Avoca's library can install. Each item has a `handle`, `name`, `category` (`blocks`, `sets` or `presets`), `version`, `status` (`not installed`, `installed` or `update available`), `description`, and the `blocks` and `sets` it adds. `resources/site/installed.yaml` records what this site has installed, and at which version.
 8. Find out how the site is hosted. See [Hosting](#hosting). Every site runs the full static cache in production, so read [Static caching](#static-caching) before you build anything that differs by visitor or calls the site's server.
 9. If the site is designed in Paper, read [Designs from Paper](#designs-from-paper) before you build anything from the design.
+10. Check the site's packages for security advisories: `composer audit --locked` and `npm audit`. Fix one before other work, as a security patch, as [Branches and commits](#branches-and-commits) says. Check the clone runs the pre-push hook too: `git config core.hooksPath` should say `.githooks`. When the site has no `.githooks/pre-push`, write it with `php please avoca:site:script pre-push` and commit it, as [Updates](#updates) says.
 
 ## How an Avoca site is put together
 
@@ -693,12 +694,16 @@ with `APP_ENV=check` and Statamic Pro off, so it never touches the site's own `.
 licence key. It exits 0 when the site renders, 1 when it doesn't, 2 when it couldn't run at all. Run it
 by hand before pushing a dependency change; that is the same thing the runner will do.
 
+**The pre-push hook** keeps a security advisory from reaching `main` by a push. `php please avoca:site:script pre-push` writes it into the site at `.githooks/pre-push`, where the site owns it, as it does `scripts/server-git.sh`. Git runs it only once a clone says where its hooks are, so run `git config core.hooksPath .githooks` once in every clone you work in, and never on a server, where `server-git.sh` pushes the client's content to `main`. It refuses a push to `main` while Composer finds an advisory outside `require-dev`, or npm a high or critical one. Other branches, a deletion and a push that changes a lock file go through, the last because it is a fix going out. Use `git push --no-verify` only when the developer says to, and give the reason in the merge commit. A pull request merged on GitHub passes no hook, so run the audits by hand before one is merged.
+
 The rules the runner works to, written down here because they are the point of the exercise:
 
 - **Patch and minor only, unattended.** A major gets a pull request of its own that a person merges,
   because a major is a decision.
 - **Nothing younger than three days.** A release that was published this morning has not been looked at
-  by anybody yet, and that is when a compromised package is at its most dangerous.
+  by anybody yet, and that is when a compromised package is at its most dangerous. The exception is a
+  release a security advisory names as its fix, which goes as soon as it is out: the advisory has already
+  told everyone where the hole is. Check it is the release the advisory links to. Everything else waits.
 - **Canary sites first, the fleet a few days later.** A bad release should be found on a site we are
   watching, not on a hundred we are not.
 - **Fast forward before anything else, and stop if it can't.** On a site whose content is edited on the
@@ -740,6 +745,7 @@ and has nothing to update.
 
 - **Design work goes on a branch called `design`.** That is the design stage, and every design brought down from Paper. Keep to the one branch for the whole stage, rather than a branch for each page, and create it from `main` when the site doesn't have one yet.
 - **A quick fix goes on a branch of its own,** made from `main`, even when the fix comes from Paper.
+- **A security patch goes straight on `main`,** not on `design` or a branch of its own, so other work never holds it up. `design` picks it up at its next merge from `main`. A patch only updates the packages an advisory names: `composer update <packages> --with-dependencies`, and `npm audit fix`, never with `--force`, which takes majors. Commit it once `composer audit --locked` and `npm audit` are clean and `check-site.sh` passes, as the runner does, `updater: security patches (2026-11-25)` with a line for each package, then push `main` and check the deploy. When the checkout has work in progress, make the patch in a worktree of `main` (`git worktree add`), never by stashing, resetting or committing someone else's changes. A fix that needs a major, or a change to a constraint in `composer.json`, isn't a patch: it gets a pull request of its own, as [Updates](#updates) says.
 - **Bring `main` into `design` at the start of every session,** before anything else: `git fetch origin`, then `git merge origin/main` on `design`. It brings in quick fixes, and on a site whose content is edited on the server, what the client has saved there since. When the merge conflicts, stop and show the developer the conflicting files rather than choosing for them.
 - **Every server deploys `main`, and only `main`.** Staging and live alike: no server ever deploys `design`, a quick fix's branch or a `staging` branch. Work on any other branch reaches a server only by being merged into `main`, so nothing on `design` reaches the staging site or the live site until it is merged. Merge finished work yourself, as [Merge into main](#4-merge-into-main) says, rather than holding the stage for one pull request at the end. [Hosting](#hosting) says how a server is set to deploy `main`.
 - **When the design is done,** before its last merge into `main`, check every block's and set's control panel screenshot and take any that are missing, as [Control panel screenshot](#control-panel-screenshot) says.
@@ -776,12 +782,15 @@ php please avoca:site:catalogue
 php please avoca:site:check --strict
 php please avoca:site:audit
 npm run build
+composer audit --locked
+npm audit
 ```
 
 - The strict check must pass. It proves every block and set has a template and a guidance file, and that the committed catalogue is current.
 - It doesn't prove the guidance is written or that the screenshot exists. Check both yourself, in the files and on `/site/content`.
 - `avoca:site:audit` reads the templates, CSS and scripts against [Colours and design tokens](#colours-and-design-tokens), [Styling](#styling), [Critical CSS](#critical-css), [Scripts](#scripts), [Images](#images) and [Comments](#comments), and lists each finding with its file, line and rule. It is advisory, so it passes whatever it finds. Fix what the change brought in, and name its files to see only theirs: `php please avoca:site:audit resources/views/page_builder/_cards.antlers.html`. A finding the site keeps on purpose, such as an illustrated scene's own stylesheet, goes in `resources/site/audit-ignore.yaml` with its reason, so it is decided once rather than explained in every change.
 - `npm run build` proves the CSS and JavaScript still build with any new classes.
+- `composer audit --locked` and `npm audit` look for published security advisories in what the site deploys. While Composer reports one outside `require-dev`, or npm one that is high or critical, don't merge into `main` or push it: stop, tell the developer what is open, and fix it as a security patch, as [Branches and commits](#branches-and-commits) says. An advisory with no fix yet is recorded with its reason under `config.audit.ignore` in `composer.json`, which Composer goes on listing without counting it. npm has no such list, so a high npm advisory with no fix is the developer's decision.
 
 If a check fails, fix the cause. Never weaken a check or work around it.
 

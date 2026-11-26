@@ -125,7 +125,30 @@ class ScriptsTest extends TestCase
     {
         $this->assertTrue($this->scripts()->has(self::NAME));
         $this->assertFalse($this->scripts()->has('something-else.sh'));
-        $this->assertSame([self::NAME], Scripts::names());
+        $this->assertSame([self::NAME, 'pre-push'], Scripts::names());
+    }
+
+    public function test_the_pre_push_hook_goes_in_githooks_executable()
+    {
+        $this->write("{$this->package}/scripts/pre-push", "#!/usr/bin/env bash\nexit 0\n");
+        $this->scripts()->publish('pre-push', 'v0.2.10', '2026-11-26');
+
+        $file = "{$this->root}/.githooks/pre-push";
+        $this->assertSame('.githooks/pre-push', $this->scripts()->path('pre-push'));
+        $this->assertFileExists($file);
+        $this->assertFileDoesNotExist("{$this->root}/scripts/pre-push");
+        $this->assertSame('0755', substr(sprintf('%o', fileperms($file)), -4));
+        $this->assertSame('current', $this->scripts()->status('pre-push'));
+    }
+
+    public function test_the_package_ships_every_script_it_names()
+    {
+        $package = new Scripts($this->root, dirname(__DIR__, 2));
+
+        foreach (Scripts::names() as $name) {
+            $this->assertFileExists($package->template($name));
+            $this->assertTrue(is_executable($package->template($name)), "{$name} is not executable");
+        }
     }
 
     private function scripts(): Scripts

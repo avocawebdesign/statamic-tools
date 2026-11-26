@@ -10,7 +10,7 @@ The machinery Avoca Design sites share: reference pages for clients, plus the ch
 - `php please avoca:site:urls`: the pages a check should render, which is not all of them.
 - `scripts/check-site.sh`: installs, builds, boots and renders the site, for the updater and for a developer changing a dependency. See Updates in the recipe.
 - `scripts/design-check.sh`: snapshots every block before and after a change that should look the same, such as moving a block to utilities, and says whether each block is exactly the same. See [Design check](#design-check).
-- `php please avoca:site:script`: writes the server git script into the site at `scripts/server-git.sh`, where the site owns it. See [Server scripts](#server-scripts).
+- `php please avoca:site:script`: writes the server git script into the site at `scripts/server-git.sh`, where the site owns it, and with `pre-push` the hook that keeps security advisories off `main`, at `.githooks/pre-push`. See [Server scripts](#server-scripts).
 - `php please avoca:site:catalogue`: writes the site's AI block catalogue.
 - `php please avoca:make:collection`: makes a collection with a page builder or custom blueprint, a listing block, editor access and a record an AI agent finishes it from.
 - `php please avoca:site:permissions`: gives the editor role the permissions for every collection, taxonomy, navigation, global set and asset container that isn't opted out. `--dry-run` lists what it would add.
@@ -57,6 +57,7 @@ The rest are `--sk-ink` (text), `--sk-ground` (page background), `--sk-on-accent
 | `resources/site/editor-access.yaml` | people | `avoca:site:permissions`, the automatic editor role updates and `avoca:site:check` |
 | `resources/site/installed.yaml` | `avoca:library:install`, `avoca:site:script` | `avoca:library:list`, `avoca:site:check` |
 | `scripts/server-git.sh` | `avoca:site:script`, then the site | cron and the deploy script on the server |
+| `.githooks/pre-push` | `avoca:site:script pre-push`, then the site | git, before a push, in a clone that sets `core.hooksPath` |
 | `storage/design-check/<run>`, which git ignores | `scripts/design-check.sh` | `scripts/design-check.sh compare` |
 | `resources/site/audit-ignore.yaml` | people | `avoca:site:audit` |
 
@@ -75,6 +76,8 @@ The paths are set in `config/statamic-tools.php`.
 - Feedback runs the site's copy too: a change to a comment runs `scripts/server-git.sh commit --now` once the response has gone, with `AVOCA_GIT_SUBJECT` set to say what changed, so comments are committed within seconds. The Feedback section has what a server needs for it.
 
 The package still holds the script at `vendor/avocadesign/statamic-tools/scripts/server-git.sh`, so a server set up before this and pointing at that path keeps working.
+
+`scripts/pre-push` is published the same way, by `php please avoca:site:script pre-push`, to `.githooks/pre-push`, with the same `--diff`, `--force` and warnings. It refuses a push to `main` while `composer audit` finds an advisory outside `require-dev` or `npm audit` a high or critical one, because `main` deploys. Other branches, a deletion and a push that changes a lock file go straight through, and `git push --no-verify` skips it. Git runs it only once a clone says where its hooks are: `git config core.hooksPath .githooks`, once in each clone you work in, and never on a server, where `server-git.sh` pushes the client's content to `main`.
 
 ## Design check
 

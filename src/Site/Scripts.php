@@ -6,8 +6,9 @@ use Avocadesign\StatamicTools\Library\Library;
 use Composer\InstalledVersions;
 
 /**
- * The server scripts the add-on publishes into a site. The package holds the one canonical copy and never edits it in
- * place; a site gets its own at scripts/<name> and owns it from then on, because how a server commits a site's content
+ * The scripts the add-on publishes into a site: the server's git script and the pre-push hook. The package holds the one
+ * canonical copy and never edits it in place; a site gets its own, at scripts/<name> or where PLACED puts it, and owns it
+ * from then on, because how a server commits a site's content
  * is the site's business rather than the package's. The site's copy is never read back: the package's file is always
  * the source. What was published, and a checksum of it, goes in resources/site/installed.yaml beside the library items,
  * so a later release can tell a copy the site has changed from one that has simply not caught up.
@@ -19,6 +20,12 @@ final class Scripts
     /** What the add-on can publish: the name a site knows it by => its path inside the package. */
     private const AVAILABLE = [
         'server-git.sh' => 'scripts/server-git.sh',
+        'pre-push' => 'scripts/pre-push',
+    ];
+
+    /** A script that lives somewhere other than the site's scripts folder: its name => its path from the site root. */
+    private const PLACED = [
+        'pre-push' => '.githooks/pre-push',
     ];
 
     public function __construct(
@@ -69,7 +76,7 @@ final class Scripts
     /** Where the site's own copy lives, relative to the site root. */
     public function path(string $name): string
     {
-        return trim($this->directory, '/').'/'.$name;
+        return self::PLACED[$name] ?? trim($this->directory, '/').'/'.$name;
     }
 
     public function file(string $name): string
@@ -140,7 +147,7 @@ final class Scripts
         }
 
         file_put_contents($file, $contents);
-        // Explicitly, because the umask would otherwise decide whether cron can run it.
+        // Explicitly, because the umask would otherwise decide whether cron, or git for a hook, can run it.
         chmod($file, 0755);
 
         $this->library()->write($name, [

@@ -7,7 +7,8 @@ use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 
 /**
- * Puts one of the add-on's server scripts in the site, at scripts/<name>, where the site owns it. Run by hand, and by
+ * Puts one of the add-on's scripts in the site, where the site owns it: scripts/server-git.sh, or the pre-push hook at
+ * .githooks/pre-push. Run by hand, and by
  * the starter kit when a site is first installed. It refuses to write over a copy the site has changed, so a site that
  * needed something different keeps it: --diff says what differs and --force overwrites. Not for a deploy script, which
  * would then fail on every deploy of a site that customised its copy.
@@ -19,7 +20,7 @@ class SiteScript extends Command
         {--force : Write over a copy this site has changed}
         {--diff : Say how the site\'s copy differs from the add-on\'s, and change nothing}';
 
-    protected $description = "Publish one of the add-on's server scripts into the site, where the site can change it.";
+    protected $description = "Publish the add-on's server git script or pre-push hook into the site, where the site can change it.";
 
     public function handle(): int
     {
@@ -41,6 +42,7 @@ class SiteScript extends Command
 
         if ($status === 'current' && ! $this->option('force')) {
             $this->info("{$path} is already the copy the add-on ships.");
+            $this->nextStep($name, $path);
 
             return self::SUCCESS;
         }
@@ -64,9 +66,19 @@ class SiteScript extends Command
             default => "Wrote {$path} from {$version}, over a copy this site had changed.",
         });
         $this->line("It is the site's file now: change it if this site needs something different, and commit it.");
-        $this->line("Recorded in {$scripts->installedPath()}. See where the site stands: <fg=cyan>./{$path} status</>");
+        $this->line("Recorded in {$scripts->installedPath()}.");
+        $this->nextStep($name, $path);
 
         return self::SUCCESS;
+    }
+
+    private function nextStep(string $name, string $path): void
+    {
+        $this->line(match ($name) {
+            // A hook reads the push it is checking from git, so it is switched on rather than run.
+            'pre-push' => 'Switch it on in each clone you work in, never on a server: <fg=cyan>git config core.hooksPath .githooks</>',
+            default => "See where the site stands: <fg=cyan>./{$path} status</>",
+        });
     }
 
     private function reason(string $status, Scripts $scripts): string

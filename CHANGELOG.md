@@ -2,6 +2,16 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## v0.2.11 (26 November 2026)
+
+### Security
+
+- **Advisories are checked before anything reaches `main`.** The automated checks now run `composer audit --locked` and `npm audit`, and while Composer reports an advisory outside `require-dev`, or npm a high or critical one, the agent stops and tells the developer rather than merging or pushing. An advisory with no fix yet is recorded with its reason under `config.audit.ignore` in `composer.json`. Before you start also checks for advisories, and that the clone runs the hook below.
+- **A pre-push hook that keeps them off `main`.** `php please avoca:site:script pre-push` writes it into the site at `.githooks/pre-push`, where the site owns it, recorded in `resources/site/installed.yaml` like `scripts/server-git.sh`, with the same `--diff`, `--force` and `avoca:site:check` warnings. It refuses a push to `main` while advisories are open, lets other branches, deletions and any push that changes a lock file through, and finds Herd's PHP and Node when a push comes from an app opened from the Dock. Git runs it only once a clone sets `git config core.hooksPath .githooks`, which is never done on a server.
+- **A security patch goes straight on `main`.** Branches and commits says so: only the packages an advisory names, committed once the audits are clean and `check-site.sh` passes, made in a worktree of `main` when the checkout has work in progress, then pushed and its deploy checked. A fix that needs a major or a constraint change still gets a pull request of its own.
+- **A security fix doesn't wait three days.** The runner's three day rule now excepts a release that an advisory names as its fix.
+- **To do on update:** nothing is required. To switch the hook on in a site, run `php please avoca:site:script pre-push`, commit `.githooks/pre-push`, and run `git config core.hooksPath .githooks` in each clone. A site that copied a hook into `.githooks/pre-push` by hand gets a warning from `avoca:site:check` until it takes the add-on's: `--diff`, then `--force`.
+
 ## v0.2.10 (26 November 2026)
 
 ### Updates

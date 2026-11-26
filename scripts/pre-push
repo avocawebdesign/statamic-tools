@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Before a push to main, check the site's packages for security advisories,
+# because main is what deploys. Other branches go straight through.
+#
+# php please avoca:site:script pre-push writes it into a site at .githooks/pre-push,
+# where the site owns it. Switch it on once in each clone you work in:
+#
+#     git config core.hooksPath .githooks
+#
+# Never on a server: server-git.sh pushes the client's content to main from there.
+#
+# Composer counts every advisory, because many arrive with no severity to filter
+# on, and leaves out dev packages, which a deploy does not install. npm counts
+# high and critical only, and keeps dev packages, which a deploy builds with.
+#
+# A push that changes a lock file goes ahead whatever the audit finds: that is a
+# fix going out, and a partial fix should not wait for the rest of it.
+
+# Apps opened from the Dock may not have the shell's PATH: use Herd's PHP,
+# Composer and newest Node when they are there.
+herd="$HOME/Library/Application Support/Herd"
+node_bin=$(ls -d "$herd"/config/nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)
+export PATH="$herd/bin:${node_bin:+$node_bin:}/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+to_main=false
+lock_changed=false
+
+while read -r _ local_sha remote_ref remote_sha; do
+    [ "$remote_ref" = "refs/heads/main" ] || continue
+    [[ "$local_sha" =~ ^0+$ ]] && continue
+    to_main=true
+    [[ "$remote_sha" =~ ^0+$ ]] && continue
+    git diff --name-only "$remote_sha" "$local_sha" -- composer.lock package-lock.json 2>/dev/null | grep -q . && lock_changed=true
+done
+
+[ "$to_main" = true ] || exit 0
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+echo "Checking for security advisories before this reaches main."
+found=false
+composer audit --locked --no-dev --abandoned=report --format=plain || found=true
+npm audit --audit-level=high || found=true
+
+[ "$found" = true ] || exit 0
+
+if [ "$lock_changed" = true ]; then
+    echo "Advisories remain, but this push changes a lock file, so it goes ahead."
+    exit 0
+fi
+
+cat <<'MESSAGE'
+
+Not pushed: main deploys, and the advisories above are still open.
+
+Fix them first, or, when one has no fix yet, record why under config.audit.ignore
+in composer.json. To push anyway, and say why in the merge commit:
+
+    git push --no-verify
+MESSAGE
+exit 1
