@@ -2,6 +2,13 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## v0.2.9 (26 November 2026)
+
+### Deploying
+
+- **A deploy script may take its branch from Ploi.** Hosting no longer says the one git line is on every site. A longer deploy script that reads Ploi's `{BRANCH}` placeholder and passes it to `server-git.sh sync` as `AVOCA_GIT_BRANCH` is fine too, because the branch setting is `main`. The rule is unchanged: the script never types the name of any branch but `main`.
+- **To do on update:** nothing.
+
 ## v0.2.8 (26 November 2026)
 
 ### Deploying

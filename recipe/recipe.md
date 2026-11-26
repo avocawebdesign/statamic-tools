@@ -633,13 +633,13 @@ How a site is hosted changes how you work on it, so ask the developer before you
 **Every site deploys `main`,** as [Branches and commits](#branches-and-commits) says. On Ploi that takes two settings, and the second is the one that goes wrong:
 
 - The site's branch, under Repository, is `main`, with Quick deploy on so that a push to `main` deploys.
-- The deploy script's git line is the same on every site, and names no branch but `main`:
+- The deploy script never types the name of any branch but `main`. Its git step is either this line:
 
   ```bash
   if [ -x scripts/server-git.sh ]; then ./scripts/server-git.sh sync; else git pull origin main; fi
   ```
 
-  The script runs as it is written, whatever the branch setting says. A script that still has `git pull origin design` from when the site was set up deploys `design` every time, while Ploi lists `main`'s commits beside each deploy as if they had arrived.
+  or a longer script that takes the branch from Ploi's `{BRANCH}` placeholder, such as `BRANCH="{BRANCH}"` passed to `server-git.sh sync` as `AVOCA_GIT_BRANCH`, which deploys `main` because the branch setting is `main`. Either way, the script runs as it is written. A script that still has `git pull origin design` from when the site was set up deploys `design` every time, whatever the branch setting says, while Ploi lists `main`'s commits beside each deploy as if they had arrived.
 - When you set up a site, or plan work whose result depends on a deploy, ask the developer to confirm both.
 
 **A push is not a deploy.** After you push `main`, check that the server is running the commit you pushed: the latest deployment's commit in Ploi, or `git rev-parse --short HEAD` in the site's folder on the server, against `main` on GitHub. Don't go by the server's own `git status`: it compares against the server's last fetch, so it says up to date when the server is behind. When the server is behind, deploy again. When a deploy pulls nothing, read the deploy script's git line. A second push that arrives while the first is still deploying can be left without a deploy of its own, so check after the last push.
