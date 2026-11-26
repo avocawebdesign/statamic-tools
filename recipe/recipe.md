@@ -630,6 +630,20 @@ How a site is hosted changes how you work on it, so ask the developer before you
 
 **A server's git remote can hold the account's token.** On Ploi it is `https://<token>@github.com/...`, and one token serves every site on the account, so an exposed one means changing it on every site. Never run, suggest or ask the developer to paste anything that prints the remote on a server: `git remote -v`, `git remote get-url`, `git config --get remote.origin.url`, or verbose fetch and push output. `scripts/server-git.sh` hides it in everything it prints; a script of your own that talks to the remote does the same.
 
+**Every site deploys `main`,** as [Branches and commits](#branches-and-commits) says. On Ploi that takes two settings, and the second is the one that goes wrong:
+
+- The site's branch, under Repository, is `main`, with Quick deploy on so that a push to `main` deploys.
+- The deploy script's git line is the same on every site, and names no branch but `main`:
+
+  ```bash
+  if [ -x scripts/server-git.sh ]; then ./scripts/server-git.sh sync; else git pull origin main; fi
+  ```
+
+  The script runs as it is written, whatever the branch setting says. A script that still has `git pull origin design` from when the site was set up deploys `design` every time, while Ploi lists `main`'s commits beside each deploy as if they had arrived.
+- When you set up a site, or plan work whose result depends on a deploy, ask the developer to confirm both.
+
+**A push is not a deploy.** After you push `main`, check that the server is running the commit you pushed: the latest deployment's commit in Ploi, or `git rev-parse --short HEAD` in the site's folder on the server, against `main` on GitHub. Don't go by the server's own `git status`: it compares against the server's last fetch, so it says up to date when the server is behind. When the server is behind, deploy again. When a deploy pulls nothing, read the deploy script's git line. A second push that arrives while the first is still deploying can be left without a deploy of its own, so check after the last push.
+
 On a site whose content is edited on the server:
 
 - Pull before you start work and again before you push, because the server may have pushed content in between.
@@ -659,7 +673,8 @@ inside a site. What a site owes the process is small, and it is all in the repos
 - **`.nvmrc` and `engines.node`**, so the server and the runner build on the same Node. `.npmrc` sets
   `engine-strict=true`, which turns a silent build on the wrong major into a failed one.
 - **`resources/site/updates.yaml`**, which says whether the site is enrolled, whether it is a canary or
-  part of the fleet, the branch to work on, and the handful of pages that must always render.
+  part of the fleet, the branch to work on, which is always `main`, and the handful of pages that must
+  always render.
 - **The check itself**, which comes with this addon, so it improves in one place rather than in a
   hundred repositories:
 
@@ -691,6 +706,11 @@ The rules the runner works to, written down here because they are the point of t
   that cannot take those commits first has no business pushing its own.
 - **A green check before a pull request exists.** An update nobody verified is worse than no update,
   because it looks like it was checked.
+- **Push to `main`, once, and check it deployed.** Every site deploys `main`, so the runner commits
+  to `main` whatever branch a site's local checkout is on, pushes once when all of a run's changes are
+  in, and then checks that the server is running that commit, as [Hosting](#hosting) says. A patch
+  pushed to another branch, or a second push that lands while the first is deploying, is a patch the
+  site never gets, however the runner reports it.
 
 ### Keeping the add-on current
 
@@ -721,7 +741,7 @@ and has nothing to update.
 - **Design work goes on a branch called `design`.** That is the design stage, and every design brought down from Paper. Keep to the one branch for the whole stage, rather than a branch for each page, and create it from `main` when the site doesn't have one yet.
 - **A quick fix goes on a branch of its own,** made from `main`, even when the fix comes from Paper.
 - **Bring `main` into `design` at the start of every session,** before anything else: `git fetch origin`, then `git merge origin/main` on `design`. It brings in quick fixes, and on a site whose content is edited on the server, what the client has saved there since. When the merge conflicts, stop and show the developer the conflicting files rather than choosing for them.
-- **Only `main` goes live.** Nothing on `design` or any other branch reaches the live site until it is merged into `main`. Merge finished work yourself, as [Merge into main](#4-merge-into-main) says, rather than holding the stage for one pull request at the end.
+- **Every server deploys `main`, and only `main`.** Staging and live alike: no server ever deploys `design`, a quick fix's branch or a `staging` branch. Work on any other branch reaches a server only by being merged into `main`, so nothing on `design` reaches the staging site or the live site until it is merged. Merge finished work yourself, as [Merge into main](#4-merge-into-main) says, rather than holding the stage for one pull request at the end. [Hosting](#hosting) says how a server is set to deploy `main`.
 - **When the design is done,** before its last merge into `main`, check every block's and set's control panel screenshot and take any that are missing, as [Control panel screenshot](#control-panel-screenshot) says.
 - **When a page needs new sections, commit each one as soon as it is built,** before starting the next. Regenerate the catalogue before a commit that changes a fieldset or guidance file, so every commit passes the strict check, and name the page and the section in the message: `About: add the team section`. Merge the page into `main` once it is finished and its checks pass.
 
@@ -781,6 +801,7 @@ Make the change on the branch [Branches and commits](#branches-and-commits) give
 - Merge with a merge commit, `git merge --no-ff`, so the change is reverted as one: the fieldset, the template, the guidance file, the screenshot and the catalogue change, with the page builder or text editor entry, and when they apply, token changes, the collection record and blueprint, `resources/site/installed.yaml` for a library install, and role permissions.
 - The merge commit's message is the change's record: the option you chose and why, the check output, and anything left undone, such as a screenshot you could not take. Show the developer the review screenshots.
 - Push the branch as well, so it and `main` agree.
+- Then check the deploy. Within a few minutes the server should be running the merge commit, as **A push is not a deploy** in [Hosting](#hosting) says. The change isn't finished until it is.
 
 **Large new functionality goes to a pull request instead,** which the developer merges: a new collection with its own pages and templates, say, or a feature that connects the site to another service. The plan says so, so the developer decides once, at the plan. The pull request's description holds what the merge commit would, and you don't merge it yourself.
 
@@ -818,6 +839,7 @@ A site launches when it goes live for the client's visitors, after their sign-of
    - no `[NEEDS PROOF` or `[CLIENT TO APPROVE` marker left in `content/`, as [Facts and proof](#facts-and-proof) says;
    - every routed collection in the SEO global's sitemap collections, unless the plan says otherwise;
    - the server ready for the full static cache: the strategy, the rewrite rule, the deploy script's two cache lines and the scheduler, as [Static caching](#static-caching) says;
+   - the live site deploying `main`: its branch setting, Quick deploy on, and the deploy script's git line as [Hosting](#hosting) gives it, with the server running the last commit on `main`;
    - feedback switched off: `FEEDBACK_ENABLED=false`.
 4. **Commit `composer.json`, `composer.lock` and `resources/site/updates.yaml`** together: `Launch: hold the add-on to 0.1`.
 

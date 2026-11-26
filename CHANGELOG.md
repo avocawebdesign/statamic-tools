@@ -2,6 +2,16 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## v0.2.8 (26 November 2026)
+
+### Deploying
+
+- **Every server deploys `main`, and only `main`.** Branches and commits says so, staging and live alike: `design`, a quick fix's branch and a `staging` branch are never deployed, and their work reaches a server only by being merged into `main`.
+- **Hosting gives the deploy script's git line**, the same on every site: `if [ -x scripts/server-git.sh ]; then ./scripts/server-git.sh sync; else git pull origin main; fi`. Ploi runs the script as it is written, whatever the site's branch setting says. One site's script still had `git pull origin design` from its setup, so four deploys of `main`'s security patches pulled nothing while Ploi listed the patches beside each deploy.
+- **A push is not a deploy.** After pushing `main`, the agent checks that the server is running that commit, not the server's own `git status`, which compares against its last fetch. Merge into main and the launch checklist both end with that check. A second push that arrived while the first was still deploying was left without a deploy on two sites.
+- **The updater's rules** add one: commit to `main` whatever branch a local checkout is on, push once per run, and check the deploy. Two sites' patches went to `design` because that was the branch checked out.
+- **To do on update:** nothing in the site. Separately, check every site's deploy script in Ploi for a git line that names a branch other than `main`, and its branch setting and Quick deploy.
+
 ## v0.2.7 (26 November 2026)
 
 ### Review steps
