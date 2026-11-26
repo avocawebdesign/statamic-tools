@@ -84,7 +84,7 @@ Don't edit this file in `vendor/`. If a step is wrong, missing or contradicted b
 - A structure added any other way, such as a settings file you write in `content/`, gets nothing automatically. Run `php please avoca:site:permissions --dry-run` to see what the role is missing, then `php please avoca:site:permissions` to add it. `avoca:site:check` warns when the role is missing permissions for a structure that isn't opted out, but never fails because of it, even with `--strict`.
 - To keep a structure away from editors, opt it out, and the automatic updates and `avoca:site:permissions` never add its permissions. For a new collection, pass `--no-editor-access` to `avoca:make:collection`, which records `editor_access: false` in the collection record. For anything else, list its handle in `resources/site/editor-access.yaml` under `collections`, `taxonomies`, `navigation`, `globals` or `assets`: the folder in `content/` that holds its settings file.
 - Opting out never removes permissions the role already has, so a deliberate partial set, such as view only, stays as it is. Opt a structure out before you create it, or remove the permissions it was given when you opt it out.
-- Commit `resources/users/roles.yaml`, and `resources/site/editor-access.yaml` when it changes, in the same pull request as the structure.
+- Commit `resources/users/roles.yaml`, and `resources/site/editor-access.yaml` when it changes, in the same change as the structure.
 
 ### Pages
 
@@ -156,7 +156,7 @@ The rules:
 - **Artwork that only one page has can be a stylesheet of its own, loaded only there**, when it is large: a block's illustrated figures, say, that are a quarter of `site.css`. The component file itself is the Vite entry: `@reference "../site.css";` for the theme (so Tailwind compiles it as it did inside `site.css` and emits nothing of `site.css`'s), its rules inside `@layer components { }` so utilities still win, and the block's template links it the way the layout loads `site.css`, inside the block rather than in the head's stack so `/site/content`'s preview styles it too. `site.css` keeps an `@source` line on the file, so the theme tokens only it reads are still declared. Two things then follow: anything a script reads must not come from that stylesheet, which can arrive after the script has measured (put it on the element, as below), and the script must measure again when the block's size changes.
 - **A script takes its values from the template, not from CSS.** A value it needs, such as how long a slide stays, is passed in its `x-data` call, never read from a CSS custom property.
 - **Scripts find elements by `data-` attributes, never by class, and mark state with them**, such as `data-active` and `data-revealed`, which utilities and variants read: `data-active:opacity-100`. A class can then change without breaking a script.
-- **Prove a conversion changes nothing.** Moving a block from its own stylesheet to utilities, or changing a shared class or a token in a way that should look the same, ought to leave every page as it was, and a screenshot checked by eye misses a pixel. Run `bash vendor/avocadesign/statamic-tools/scripts/design-check.sh before` before the change, `... after` once it's made, and `... compare before after`. It snapshots every block on the pages `avoca:site:urls` names, at a phone and a desktop width, and compares every element's computed styles, matched by its place in the DOM rather than by its class, and the pixels. A block that moves, such as a carousel, tabs or a scroll reveal, also needs its states in both runs, with `--block` and a `--state` for each, as the add-on's README shows. Say in the pull request what it compared and what it found.
+- **Prove a conversion changes nothing.** Moving a block from its own stylesheet to utilities, or changing a shared class or a token in a way that should look the same, ought to leave every page as it was, and a screenshot checked by eye misses a pixel. Run `bash vendor/avocadesign/statamic-tools/scripts/design-check.sh before` before the change, `... after` once it's made, and `... compare before after`. It snapshots every block on the pages `avoca:site:urls` names, at a phone and a desktop width, and compares every element's computed styles, matched by its place in the DOM rather than by its class, and the pixels. A block that moves, such as a carousel, tabs or a scroll reveal, also needs its states in both runs, with `--block` and a `--state` for each, as the add-on's README shows. Say in the merge commit what it compared and what it found.
 
 ### Critical CSS
 
@@ -178,7 +178,7 @@ Nothing measures what is above the fold, and nothing needs to. The recipe alread
 
   `media="print"` is how a stylesheet loads without blocking the render; `onload` switches it to `all` once it has. The `noscript` copy is there because a browser with JavaScript off never runs that `onload`, and without it the site would be left with only its critical CSS.
 
-- **It cannot go stale, but the list can.** Every `npm run build` regenerates it from the templates as they are then, so a change to the header's markup or to a token is picked up with no step to remember. What is not automatic is the list: a partial added to the header or the page header, and not added to `@source`, has its utilities missing at first paint and arriving when the full sheet lands. Add the line in the same pull request as the partial.
+- **It cannot go stale, but the list can.** Every `npm run build` regenerates it from the templates as they are then, so a change to the header's markup or to a token is picked up with no step to remember. What is not automatic is the list: a partial added to the header or the page header, and not added to `@source`, has its utilities missing at first paint and arriving when the full sheet lands. Add the line in the same change as the partial.
 - **`avoca:site:check` checks the list for you.** On a site with a `critical.css` it follows the partials the header and the page header render and warns for any that no `@source` line covers, which is the one way this goes wrong quietly. It says nothing about a site that has no `critical.css`, and it is always a warning: the page renders either way.
 - **Check it after any change to what is above the fold.** Load a page with the network throttled and watch the first paint: the header, the page header and its buttons should arrive in their final shape. Anything that jumps when the full sheet lands is a missing `@source` line or a shared import that only `site.css` has.
 - **A page-specific critical sheet only for a large saving.** A block that leads one or two pages, such as an estimator, can have its own sheet, `critical-<name>.css`, which `@import`s `critical.css` and adds its templates with `@source`. The block's template asks for it with `{{ section:critical_css }}<style>{{ vite:content src="resources/css/critical-<name>.css" directory="_build" }}</style>{{ /section:critical_css }}`, and the layout yields that section with `critical.css` as its default. It is one sheet, never a second beside `critical.css`, because Tailwind orders utilities within a sheet: a utility in a second sheet would beat a responsive one in the first. So a page inlines exactly one critical sheet, and a page with two such blocks above the fold, such as a form and an estimate, needs one sheet holding both. Make one only for a good reason that repeats: when folding it back into `critical.css` would make the critical CSS of most other pages 10 to 15% larger or more, gzipped. Below that it isn't worth the complexity, so fold it back. Never one per page: group blocks that share pages, such as a form and the estimator that leads into it, into one sheet.
@@ -347,7 +347,7 @@ Every value that comes back is one of three things:
 | A phone number, email address, social link or address | Site Details, read from there by the template or the Contact Details set. Ask the developer whether to import the design's, as [Site Details global](#site-details-global) says. |
 | A part repeated across pages, such as a card | The decision order below: a block the site has, a library item, a change to a block, then a new block. |
 
-When a page is built, screenshot it at 390 and 1440 beside the Paper artboards, and list in the pull request every value that matched no token and what you did with it.
+When a page is built, screenshot it at 390 and 1440 beside the Paper artboards, and list in the merge commit every value that matched no token and what you did with it.
 
 ## Bringing a design in from elsewhere
 
@@ -357,7 +357,7 @@ A design arrives as a Paper file, an Astro or Next build, a hand-written HTML pa
 2. **Markup into Antlers.** Each section becomes a block or the page header; anything repeated, such as a card, a person or a price, becomes a partial with what differs passed in; text becomes fields and globals, never template copy. A WordPress theme's template parts and an Astro component's props map onto partials and their parameters.
 3. **Styles into utilities.** A source's stylesheet, BEM (`.proof-strip__card`), CSS modules, scoped Astro styles, a page builder's inline styles, is read for what it does and rewritten as utilities in the template. Only what utilities can't express stays CSS: an illustrated scene, a sequence timed across elements, keyframes. Even then the text, buttons and layout around it are utilities, and the CSS that stays writes what utilities can say with `@apply`. It may keep the source's class names where an illustration has too many parts to name any other way; record that in `resources/site/audit-ignore.yaml`.
 4. **Behaviour into Alpine.** A source's scripts (jQuery plugins, React state, vanilla listeners) become Alpine components registered in `site.js`, as [Scripts](#scripts) says. Behaviour two blocks share is one module.
-5. **Prove it.** The site's version is checked against the source at a phone and a desktop width, and anything the source did that the site's version doesn't is listed in the pull request.
+5. **Prove it.** The site's version is checked against the source at a phone and a desktop width, and anything the source did that the site's version doesn't is listed in the merge commit.
 
 What not to do, from ports that went wrong: carrying the source's class names and stylesheet in "for now"; keeping its token layer as aliases; a stylesheet per block; a stylesheet whose job is to override the kit; a script reading values out of CSS; every page loading every block's assets.
 
@@ -367,10 +367,10 @@ What not to do, from ports that went wrong: carrying the source's class names an
 
 1. **Use a block the site already has, as it is.** Look through the catalogue and the previews on `/site/content`, including every display setting. Content that a block's guidance lists under When not to use doesn't fit that block.
 2. **Install a library item.** Preview the install with `php please avoca:library:install <handle> --dry-run`. Each step is marked `+` new, `=` already the same, `!` conflict or `✗` error. If any step is a conflict or an error, stop and put it in the plan. Never pass `--force` unless the developer has approved replacing those files. Install with `php please avoca:library:install <handle>`: it copies the item's files, adds its blocks or sets to their group with their screenshots, adds permissions, records the version in `resources/site/installed.yaml` and regenerates the catalogue. Do what the notes it prints ask, then read the guidance it installed and adjust it to this site. Installed files belong to the site from then on. An item marked `update available` is a change to plan with the developer, because the site may have edited its copy.
-3. **Change an existing block.** Only when the block nearly fits and the change suits every page that uses it. Find those pages by searching `content/` for `type: <handle>`. Keep existing field handles and option keys, because saved content depends on them; if one has to change, move the saved content in the same pull request. Give a new option a default that keeps the current look, and put new layout options behind Display settings. Then update the block's guidance, retake its screenshot if its default look changed, and regenerate the catalogue. If `resources/site/installed.yaml` lists the block, say in the plan that the site's copy will differ from the library.
+3. **Change an existing block.** Only when the block nearly fits and the change suits every page that uses it. Find those pages by searching `content/` for `type: <handle>`. Keep existing field handles and option keys, because saved content depends on them; if one has to change, move the saved content in the same change. Give a new option a default that keeps the current look, and put new layout options behind Display settings. Then update the block's guidance, retake its screenshot if its default look changed, and regenerate the catalogue. If `resources/site/installed.yaml` lists the block, say in the plan that the site's copy will differ from the library.
 4. **Build a new block.** Only when none of the above meets the brief. Follow [Building a new block](#building-a-new-block).
 
-Say which option you chose and why, in the plan and again in the pull request, including what ruled out each earlier option. For example: "Option 3, change an existing block. No block in the catalogue shows a date beside each item, the library has nothing for it, and a new date option that is off by default leaves every current page as it is."
+Say which option you chose and why, in the plan and again in the merge commit, including what ruled out each earlier option. For example: "Option 3, change an existing block. No block in the catalogue shows a date beside each item, the library has nothing for it, and a new date option that is off by default leaves every current page as it is."
 
 The same order applies to text editor sets, with library items in the `sets` category, and to collections, with library items in the `presets` category.
 
@@ -380,7 +380,7 @@ Start from a copy of the closest block the site already has, never from a blank 
 
 Check the handle before you create anything: `php please avoca:check-name <handle> --display="<Name>"`. It exits with 1 when the handle is taken, either by a library item the site hasn't installed, which option 2 installs instead, or by something the site already has. It lists similar names, such as a plural, without stopping: look at that library item before building your own, and never give different work a library item's handle.
 
-A new block is six things, and all six go in one pull request: the fieldset, the template, its entry in the page builder, its guidance file, its control panel screenshot and the regenerated catalogue.
+A new block is six things, and all six go into `main` together: the fieldset, the template, its entry in the page builder, its guidance file, its control panel screenshot and the regenerated catalogue.
 
 ### Fieldset
 
@@ -400,7 +400,7 @@ Content that repeats, such as cards, prices or statistics, goes in a grid or a r
 - **A grid with one text field for a list inside an item,** such as the points on a card, one row per point, shown as a list. Keep lists out of an item's text editor, where they make one item taller than the rest. The block's guidance says how many points its design holds.
 - **A grid when every item is the same short form:** text fields, a textarea such as `common.text_plain`, a select, a toggle or a single image. Use `mode: stacked` once a row has more than three fields or a textarea, because `table` squeezes them into columns, and give it an `add_row` naming the item, such as `'Add a price'`, with `min_rows` or `max_rows` when the design needs them.
 
-Switching an existing field between the two changes how its content is saved, because a replicator records each item's set as its `type`. Move the saved content in the same pull request, as for any changed handle.
+Switching an existing field between the two changes how its content is saved, because a replicator records each item's set as its `type`. Move the saved content in the same change, as for any changed handle.
 
 Help text is one short line. Five or six words, no full stop, saying what the field does and nothing else: "Set the block's colour scheme", "A class the site's CSS defines". An editor reads it while deciding, not to learn the system, and a paragraph under every field makes a form look harder than it is. What a field is for, when to use it and what it does to the page belong in the block's guidance, which is where `/site/content` and the catalogue show them.
 
@@ -526,9 +526,9 @@ Every block needs a screenshot. It is the block's preview in the control panel's
 4. Add `image: <handle>.jpeg` to the block's entry in `resources/fieldsets/page_builder.yaml`.
 5. Open Developer details for the block on `/site/content`. Preview image must name the file, not say missing or not added.
 
-Retake the screenshot whenever the block's default look changes. Use a browser or screenshot tool you already have, and don't add a dependency to the site for it. If you can't take one, say so in the pull request and leave it for the developer. Don't commit a placeholder image. A library item brings its own screenshot and sets `image:` when it installs.
+Retake the screenshot whenever the block's default look changes. Use a browser or screenshot tool you already have, and don't add a dependency to the site for it. If you can't take one, say so in the merge commit and leave it for the developer. Don't commit a placeholder image. A library item brings its own screenshot and sets `image:` when it installs.
 
-**When the design is done,** before `design` is merged into `main`, go through every block in the page builder and every set in the text editor. The design reaches most of them through the tokens, so screenshots taken before it, the kit's own among them, no longer show this site. Open Developer details for each one on `/site/content`. Take a screenshot for any whose Preview image says missing or not added, with the steps above, a set's `image:` going on its entry in `resources/fieldsets/article.yaml`. Retake any whose screenshot no longer looks like its preview. Commit them together, and list in the pull request any you couldn't take.
+**When the design is done,** before its last merge into `main`, go through every block in the page builder and every set in the text editor. The design reaches most of them through the tokens, so screenshots taken before it, the kit's own among them, no longer show this site. Open Developer details for each one on `/site/content`. Take a screenshot for any whose Preview image says missing or not added, with the steps above, a set's `image:` going on its entry in `resources/fieldsets/article.yaml`. Retake any whose screenshot no longer looks like its preview. Commit them together, and list in the merge commit any you couldn't take.
 
 ### Catalogue and check
 
@@ -570,11 +570,11 @@ Collections hold related items, such as people, projects and testimonials. Each 
    - creates the listing block in the Dynamic group when asked. The block shows all entries or chosen ones, with ordering and a limit;
    - writes the collection record, `resources/site/collections/<handle>.md`. Its front matter records the decisions. For a custom blueprint the record also holds a plain-language `## Blueprint brief` and `## Notes for AI`.
 4. **Build from the record.** For a custom blueprint, build the blueprint, and a show template when entries have URLs, from the record, following the conventions in this recipe. The `--ai` option hands the brief to Claude Code running headless. Leave it off when you are the agent doing the build, and build from the record yourself.
-5. **Keep the record.** It stays as the history of the collection's decisions. When a later change alters a decision, record it there in the same pull request.
+5. **Keep the record.** It stays as the history of the collection's decisions. When a later change alters a decision, record it there in the same change.
 6. **Finish the listing block like any new block:** its guidance written in full and naming the collection it shows, its control panel screenshot, the regenerated catalogue and a passing strict check.
 7. **With URLs, check the entry pages.** An entry must render at its route, and the collection belongs in the sitemap collections of the SEO global unless the plan says otherwise.
 
-`/site/content` gives an entries field no sample entries, so a collection block previews only the entries the site has. Add a few realistic entries before the visual review, or use the client's real ones, and say in the pull request which entries are samples.
+`/site/content` gives an entries field no sample entries, so a collection block previews only the entries the site has. Add a few realistic entries before the visual review, or use the client's real ones, and say in the merge commit which entries are samples.
 
 ### What a site tells language models
 
@@ -635,7 +635,7 @@ On a site whose content is edited on the server:
 - Pull before you start work and again before you push, because the server may have pushed content in between.
 - Change code in the repository, never on the server.
 - Commits ending in `[BOT]` come from the server pushing content it saved. Never put `[BOT]` in your own commit messages.
-- The site commits that content with its own `scripts/server-git.sh`, which cron and the deploy script both call. It is a normal tracked file: read it to see what the server does, and treat a change to it as code, so it goes through a plan and a pull request like anything else.
+- The site commits that content with its own `scripts/server-git.sh`, which cron and the deploy script both call. It is a normal tracked file: read it to see what the server does, and treat a change to it as code, so it goes through a plan and the review steps like anything else.
 
 ### The server git script
 
@@ -721,9 +721,9 @@ and has nothing to update.
 - **Design work goes on a branch called `design`.** That is the design stage, and every design brought down from Paper. Keep to the one branch for the whole stage, rather than a branch for each page, and create it from `main` when the site doesn't have one yet.
 - **A quick fix goes on a branch of its own,** made from `main`, even when the fix comes from Paper.
 - **Bring `main` into `design` at the start of every session,** before anything else: `git fetch origin`, then `git merge origin/main` on `design`. It brings in quick fixes, and on a site whose content is edited on the server, what the client has saved there since. When the merge conflicts, stop and show the developer the conflicting files rather than choosing for them.
-- **Only `main` goes live.** Nothing on `design` or any other branch reaches the live site until it is merged into `main`, through a pull request the developer merges, as [One pull request](#4-one-pull-request) says.
-- **When the design is done,** before that pull request, check every block's and set's control panel screenshot and take any that are missing, as [Control panel screenshot](#control-panel-screenshot) says.
-- **When a page needs new sections, commit each one as soon as it is built,** before starting the next, then ask the developer whether to push. Don't push without a yes. Regenerate the catalogue before a commit that changes a fieldset or guidance file, so every commit passes the strict check, and name the page and the section in the message: `About: add the team section`.
+- **Only `main` goes live.** Nothing on `design` or any other branch reaches the live site until it is merged into `main`. Merge finished work yourself, as [Merge into main](#4-merge-into-main) says, rather than holding the stage for one pull request at the end.
+- **When the design is done,** before its last merge into `main`, check every block's and set's control panel screenshot and take any that are missing, as [Control panel screenshot](#control-panel-screenshot) says.
+- **When a page needs new sections, commit each one as soon as it is built,** before starting the next. Regenerate the catalogue before a commit that changes a fieldset or guidance file, so every commit passes the strict check, and name the page and the section in the message: `About: add the team section`. Merge the page into `main` once it is finished and its checks pass.
 
 ## Review steps
 
@@ -742,13 +742,14 @@ Before you change any file, write a short plan and wait for the developer to app
 - for a design from Paper: every value that matched no token, and what you propose for each one;
 - for a design with real contact details: each one beside what Site Details holds, and whether to import it;
 - for copy: the facts it uses from `resources/site/facts.md`, and every marker it leaves, as [Facts and proof](#facts-and-proof) says;
+- whether it is large new functionality that goes to a pull request rather than straight into `main`, as [Merge into main](#4-merge-into-main) says;
 - anything you will leave out.
 
 Don't build until the developer approves. If the work stops matching the plan, stop and say so.
 
 ### 2. Automated checks
 
-Run these and quote their real output in the pull request:
+Run these and quote their real output in the merge commit:
 
 ```
 php please avoca:site:catalogue
@@ -759,7 +760,7 @@ npm run build
 
 - The strict check must pass. It proves every block and set has a template and a guidance file, and that the committed catalogue is current.
 - It doesn't prove the guidance is written or that the screenshot exists. Check both yourself, in the files and on `/site/content`.
-- `avoca:site:audit` reads the templates, CSS and scripts against [Colours and design tokens](#colours-and-design-tokens), [Styling](#styling), [Critical CSS](#critical-css), [Scripts](#scripts), [Images](#images) and [Comments](#comments), and lists each finding with its file, line and rule. It is advisory, so it passes whatever it finds. Fix what the change brought in, and name its files to see only theirs: `php please avoca:site:audit resources/views/page_builder/_cards.antlers.html`. A finding the site keeps on purpose, such as an illustrated scene's own stylesheet, goes in `resources/site/audit-ignore.yaml` with its reason, so it is decided once rather than explained in every pull request.
+- `avoca:site:audit` reads the templates, CSS and scripts against [Colours and design tokens](#colours-and-design-tokens), [Styling](#styling), [Critical CSS](#critical-css), [Scripts](#scripts), [Images](#images) and [Comments](#comments), and lists each finding with its file, line and rule. It is advisory, so it passes whatever it finds. Fix what the change brought in, and name its files to see only theirs: `php please avoca:site:audit resources/views/page_builder/_cards.antlers.html`. A finding the site keeps on purpose, such as an illustrated scene's own stylesheet, goes in `resources/site/audit-ignore.yaml` with its reason, so it is decided once rather than explained in every change.
 - `npm run build` proves the CSS and JavaScript still build with any new classes.
 
 If a check fails, fix the cause. Never weaken a check or work around it.
@@ -770,13 +771,18 @@ If a check fails, fix the cause. Never weaken a check or work around it.
 - On `/site/style`, check colours, typography, spacing, buttons and colour schemes after any token change.
 - In the control panel, open the page builder and check the block sits in the right group with its screenshot, and that its fields read in a sensible order with the layout options behind Display settings.
 - For a change that should look the same, such as moving a block to utilities or changing a shared class, compare before and after as [Styling](#styling) says, and quote what the comparison found.
-- Keep screenshots of what you reviewed for the pull request.
+- Keep screenshots of what you reviewed, to show the developer.
 
-### 4. One pull request
+### 4. Merge into main
 
-Make the change on the branch [Branches and commits](#branches-and-commits) gives it, and open one pull request into `main` that holds all of it, so it is reviewed and reverted as one: the fieldset, the template, the guidance file, the screenshot and the catalogue change, with the page builder or text editor entry. Add, when they apply, token changes, the collection record and blueprint, `resources/site/installed.yaml` for a library install, and role permissions.
+Make the change on the branch [Branches and commits](#branches-and-commits) gives it. When it is finished and the checks pass, merge it into `main` yourself and push `main`. Don't open a pull request for it or ask whether to: the developer approved the work at the plan.
 
-In the description, give the option you chose and why, the check output, the review screenshots, and anything left undone, such as a screenshot you could not take. Don't merge it yourself.
+- Bring `origin/main` into the branch first, as [Branches and commits](#branches-and-commits) says for `design`, so content saved on the server since comes with it.
+- Merge with a merge commit, `git merge --no-ff`, so the change is reverted as one: the fieldset, the template, the guidance file, the screenshot and the catalogue change, with the page builder or text editor entry, and when they apply, token changes, the collection record and blueprint, `resources/site/installed.yaml` for a library install, and role permissions.
+- The merge commit's message is the change's record: the option you chose and why, the check output, and anything left undone, such as a screenshot you could not take. Show the developer the review screenshots.
+- Push the branch as well, so it and `main` agree.
+
+**Large new functionality goes to a pull request instead,** which the developer merges: a new collection with its own pages and templates, say, or a feature that connects the site to another service. The plan says so, so the developer decides once, at the plan. The pull request's description holds what the merge commit would, and you don't merge it yourself.
 
 ### 5. Client sign-off on the staging preview
 

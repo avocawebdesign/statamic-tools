@@ -42,5 +42,5 @@ Keep it that way when you edit it.
 ## Editing the recipe
 
 - Write instructions an agent follows, in plain British English, with no em dashes.
-- When a command, path or convention the recipe describes changes in the addon or the kit, change the recipe in the same pull request.
+- When a command, path or convention the recipe describes changes in the addon or the kit, change the recipe in the same change.
 - Decisions for one site belong in that site's `resources/site/` files, not here.

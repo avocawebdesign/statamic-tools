@@ -2,6 +2,14 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## v0.2.7 (26 November 2026)
+
+### Review steps
+
+- **A finished change is merged into `main`, not sent as a pull request.** Step 4, now Merge into main, has the agent bring `origin/main` into its branch, merge with `git merge --no-ff` so the change still reverts as one, and push `main`, without asking. What the pull request's description held, the option chosen, the check output and anything left undone, goes in the merge commit. Large new functionality, such as a new collection with its own pages or a feature that connects the site to another service, still goes to a pull request the developer merges, and the plan says which a change is, so the developer decides once.
+- **Branches and commits follows.** Design work is merged into `main` as each page is finished, rather than held on `design` for one pull request at the end of the stage, and a finished section no longer waits for a yes to push. Elsewhere, "in the same pull request" is now "in the same change", and what was said in the pull request is said in the merge commit.
+- **To do on update:** nothing.
+
 ## v0.2.6 (25 November 2026)
 
 ### The style reference
