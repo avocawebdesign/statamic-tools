@@ -7,14 +7,18 @@
 #
 #   bash vendor/avocadesign/statamic-tools/scripts/check-site.sh [--audit] [--keep-env]
 #
-#   --audit     also report composer and npm advisories. Advisories never fail the check: a
-#               site is not broken because a dependency has an advisory, and a failing check
-#               that nobody can fix that morning is a check people learn to ignore.
+#   --audit     also report composer and npm advisories, first and from the lock files, so they
+#               are reported whatever happens after. Advisories never fail the check: a site is
+#               not broken because a dependency has an advisory, and a failing check that nobody
+#               can fix that morning is a check people learn to ignore.
 #   --keep-env  leave .env.check behind, to poke at what the check saw.
 #
 # The site's own .env is never touched. The check writes .env.check and runs everything with
 # APP_ENV=check, which Laravel loads instead, with Statamic Pro off: a runner has no licence
 # key, and nothing the check does needs Pro.
+#
+# A page whose template redirects, such as an entry that forwards to a file or to another site,
+# passes when it has somewhere to go: another site, or a page on this one that answers.
 #
 # Exit codes: 0 the site renders, 1 it does not, 2 the check could not run.
 
@@ -50,6 +54,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [ "$audit" = true ]; then
+    step "Advisories, for the record"
+    composer audit --locked --format=summary || true
+    npm audit --package-lock-only --omit=dev || true
+fi
+
 step "An environment of its own"
 [ -f .env.example ] || fail "No .env.example to build the check's environment from." 2
 cp .env.example .env.check
@@ -63,13 +73,14 @@ STATAMIC_LICENSE_KEY=
 STATAMIC_STATIC_CACHING_STRATEGY=null
 ENV
 export APP_ENV=check
-run php artisan key:generate --env=check --force || fail "Could not generate a key for the check." 2
 echo "  .env.check, Statamic Pro off"
 
 step "Dependencies from the lock files"
 run composer install --no-interaction --prefer-dist --no-progress || fail "composer install"
 run npm ci --no-audit --no-fund || fail "npm ci. A Node the site does not ask for is the usual reason: package.json says $(php -r 'echo json_decode(file_get_contents("package.json"), true)["engines"]["node"] ?? "no version";'), this is $(node -v)."
 echo "  installed"
+# After the install: artisan needs vendor/, which a fresh checkout doesn't have.
+run php artisan key:generate --env=check --force || fail "Could not generate a key for the check." 2
 
 step "Assets"
 run npm run build || fail "npm run build"
@@ -103,20 +114,63 @@ done
 # entry from each collection, and then whatever covers the most blocks. Rendering every page of a
 # large site would take all morning and tell us no more.
 urls=$(php please avoca:site:urls --no-ansi) || fail "avoca:site:urls"
+base="http://127.0.0.1:${port}"
+# A redirect to the site's own address is followed too, so a site whose APP_URL is set is no different.
+app_url=$(grep -E '^APP_URL=' .env.check | tail -n 1 | cut -d= -f2- | tr -d '"' | sed 's:/*$::')
+
+# The path on this site a redirect goes to, or nothing when it goes to another site.
+on_site() {
+    local location=$1 root
+    for root in "$base" "$app_url"; do
+        [ -n "$root" ] || continue
+        case "$location" in
+            "$root") echo "/"; return ;;
+            "$root"/*) echo "${location#"$root"}"; return ;;
+        esac
+    done
+}
+
 bad=0
+redirected=0
 while IFS= read -r url; do
     [ -n "$url" ] || continue
-    code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${port}${url}")
-    printf '  %s %s\n' "$code" "$url"
-    [ "$code" = "200" ] || bad=$((bad + 1))
+    answer=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "${base}${url}") || true
+    code=${answer%% *}
+    location=${answer#* }
+    case "$code" in
+        200)
+            printf '  %s %s\n' "$code" "$url"
+            ;;
+        3??)
+            target=$(on_site "$location")
+            if [ -z "$location" ]; then
+                printf '  %s %s, with nowhere to go\n' "$code" "$url"
+                bad=$((bad + 1))
+            elif [ -n "$target" ]; then
+                then_code=$(curl -s -o /dev/null -w '%{http_code}' "${base}${target}") || true
+                printf '  %s %s -> %s %s\n' "$code" "$url" "$then_code" "$target"
+                case "$then_code" in
+                    200 | 3??) redirected=$((redirected + 1)) ;;
+                    *) bad=$((bad + 1)) ;;
+                esac
+            else
+                printf '  %s %s -> %s\n' "$code" "$url" "$location"
+                redirected=$((redirected + 1))
+            fi
+            ;;
+        *)
+            printf '  %s %s\n' "$code" "$url"
+            bad=$((bad + 1))
+            ;;
+    esac
 done <<< "$urls"
-[ "$bad" -eq 0 ] || fail "$bad page(s) did not return 200."
-
-if [ "$audit" = true ]; then
-    step "Advisories, for the record"
-    composer audit --format=summary || true
-    npm audit --omit=dev || true
+if [ "$redirected" -gt 0 ]; then
+    echo
+    echo "  $redirected page(s) redirect, as their templates ask, and render only as far as the redirect."
+    echo "  Where other entries in that collection have pages of their own, list one under urls in"
+    echo "  resources/site/updates.yaml so the rest of the template is rendered too."
 fi
+[ "$bad" -eq 0 ] || fail "$bad page(s) did not render: an error, a missing page, or a redirect to one."
 
 echo
 echo "The site installs, builds and renders."

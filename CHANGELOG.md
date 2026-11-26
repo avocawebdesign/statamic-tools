@@ -2,6 +2,15 @@
 
 Avoca Tools uses semantic versioning. While the version starts with 0, a release that breaks something sites rely on, or needs them to do something when they update, moves the middle number (0.1 to 0.2). Anything else moves the last number (0.1.0 to 0.1.1).
 
+## v0.2.10 (26 November 2026)
+
+### Updates
+
+- **`check-site.sh` runs in a fresh checkout.** It generated the check's app key before `composer install`, so in a checkout with no `vendor/`, which is every checkout the updater makes, `artisan` couldn't load and the check stopped with "Could not generate a key for the check". It now installs first and generates the key after.
+- **A page that redirects on purpose passes.** An entry whose template forwards it elsewhere, such as a partner with no page of its own going to its website, or a download going to its file, counted as a failure because it wasn't a 200. A redirect now passes when it has somewhere to go: another site, which isn't followed, or a page on this site that answers, which is. A redirect to a page that is missing or errors fails, as do a redirect with no address, a 404 and a 5xx. The check prints where each redirect went, and says when pages redirected, because such a page renders only as far as the redirect: where other entries in that collection have pages, list one under `urls` in `resources/site/updates.yaml`. `avoca:site:urls` is unchanged: whether an entry redirects depends on its content and its template's conditions, which only rendering shows.
+- **`--audit` reports advisories whatever happens.** They came last, so a check that failed at any step before never reached them. They now come first, read from the lock files with `composer audit --locked` and `npm audit --package-lock-only`, which is what the check then installs.
+- **To do on update:** nothing.
+
 ## v0.2.9 (26 November 2026)
 
 ### Deploying
